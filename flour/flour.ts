@@ -34,7 +34,7 @@ export class FlourAssembler {
 
         const processed:NestedExpression[] = FlourAssembler.process_labels(parsed)
 
-        const bytes: Uint8Array[] = processed.map(FlourAssembler.encode_expression)
+        const bytes: Uint8Array[] = processed.map(FlourAssembler.bytify_expression)
         
         const merged: Uint8Array = new Uint8Array(bytes.length*instructionLength)
 
@@ -95,7 +95,7 @@ export class FlourAssembler {
         return data_bytes;
     }
 
-    private static encode_expression(expr: NestedExpression): Uint8Array{
+    private static bytify_expression(expr: NestedExpression): Uint8Array{
         const bytes:Uint8Array = new Uint8Array(instructionLength);
         let byteIndex = 0;
         if(typeof expr[0] != 'string'){
