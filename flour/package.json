@@ -1,0 +1,16 @@
+{
+  "name": "flour",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "g": "^2.0.1",
+    "tsc": "^2.0.4",
+    "typescript": "^4.6.3"
+  }
+}
