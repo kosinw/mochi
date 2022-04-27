@@ -21,6 +21,9 @@ Our compiler `mochicc` is written in GNU Guile, a Scheme implementation supporti
 ## Stage 3: `mochias`
 
 ## Stage 4: `mochivm`
+The vm will be written in AssemblyScript the program will accepts a stream of bytecode which it will interpret chunk by chunk by simulating a register machine. The vm will consist of registers, a heap, and a stack implemented using fixed length ArrayBuffers in AssemblyScript. This means we will have a fixed limit on the memory available to programs running on our vm.
+The AssemblyScript register will be compiled down to WebAssembly and then executed in the browser.
+
 
 ## License
 
