@@ -1,0 +1,1 @@
+export { OpCode } from './types';

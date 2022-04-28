@@ -1,6 +1,7 @@
 {
-  "name": "@mochi/ricecakes",
+  "name": "mochi",
   "private": true,
+  "version": "0.0.1",
   "engines": {
     "node": "^16.13.2"
   },

@@ -1,9 +1,8 @@
 {
   "include": [
-    "./src/*.ts",
-    "./test/*.ts",
+    "./src/**/*.ts",
+    "./test/**/*.ts",
   ],
-  
   "compilerOptions": {
     "strict": true,
     "noImplicitReturns": true,
@@ -15,13 +14,13 @@
     "module": "CommonJS",
     "esModuleInterop": true,
     "sourceMap": true,
-    "outDir": "dist"
+    "outDir": "dist",
+    "paths": {
+      "@module/*": ["./src/*"]
+    }
   },
   
   "typedocOptions": {
-    "entryPoints": [
-      "src/main.ts",
-    ],
     "out": "doc",
     "disableSources": true,
     "excludePrivate": true,
