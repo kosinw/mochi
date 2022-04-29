@@ -24,8 +24,10 @@ export class ListNil implements List<void> {
   }
 }
 
-export function cons<T>(car: T, cdr: T | List<T>) {
-  return new ListPair(car, cdr);
-}
+export module List {
+  export function cons<T>(car: T, cdr: T | List<T>) {
+    return new ListPair(car, cdr);
+  }
 
-export const nil = new ListNil();
+  export const nil = new ListNil();
+}

@@ -1,36 +1,45 @@
-// https://www.jmcelwa.in/posts/rust-like-enums/
+export enum ParserValueType {
+  Number = 'number',
+  Symbol = 'symbol',
+  String = 'string'
+};
 
-export interface NumberValue {
-  readonly tag: "number";
+interface BaseParserValue {
+  readonly type: ParserValueType;
+};
+
+export type NumberParserValue = BaseParserValue & {
+  readonly type: ParserValueType.Number;
   readonly value: number;
 };
 
-export interface SymbolValue {
-  readonly tag: "symbol";
+export type SymbolParserValue = BaseParserValue & {
+  readonly type: ParserValueType.Symbol;
   readonly value: string;
 }
 
-export interface StringValue {
-  readonly tag: "string";
+export type StringParserValue = BaseParserValue & {
+  readonly type: ParserValueType.String;
   readonly value: string;
 }
 
 /**
  * An abstract type representing a primitive value in Ricecakes AST. 
  */
-export type Value =
-  | NumberValue
-  | SymbolValue;
+export type ParserValue =
+  | NumberParserValue
+  | SymbolParserValue
+  | StringParserValue;
 
-export namespace Value {
+export namespace ParserValue {
   /**
    * Constructs a new primitive number value.
    * 
    * @param n a number
    * @returns a boxed number value
    */
-  export function number(n: number): NumberValue {
-    return new NumberValue(n);
+  export function number(n: number): NumberParserValue {
+    return new NumberParserValue(n);
   }
 
   /**
@@ -39,8 +48,8 @@ export namespace Value {
    * @param v an identifier
    * @returns a boxed symbol value
    */
-  export function symbol(v: string): SymbolValue {
-    return new SymbolValue(v);
+  export function symbol(v: string): SymbolParserValue {
+    return new SymbolParserValue(v);
   }
 
   /**
@@ -49,13 +58,13 @@ export namespace Value {
    * @param v a string of characters
    * @returns a boxed string
    */
-  export function string(v: string): StringValue {
-    return new StringValue(v);
+  export function string(v: string): StringParserValue {
+    return new StringParserValue(v);
   }
 
-  class NumberValue implements NumberValue {
-    public readonly tag = "number";
+  class NumberParserValue implements NumberParserValue {
     public readonly value: number;
+    public readonly type = ParserValueType.Number;
 
     public constructor(value: number) {
       this.value = value;
@@ -66,9 +75,9 @@ export namespace Value {
     }
   }
 
-  class SymbolValue implements SymbolValue {
-    public readonly tag = "symbol";
+  class SymbolParserValue implements SymbolParserValue {
     public readonly value: string;
+    public readonly type = ParserValueType.Symbol;
 
     public constructor(value: string) {
       this.value = value;
@@ -79,9 +88,9 @@ export namespace Value {
     }
   }
 
-  class StringValue implements StringValue {
-    public readonly tag = "string";
+  class StringParserValue implements StringParserValue {
     public readonly value: string;
+    public readonly type = ParserValueType.String;
 
     public constructor(value: string) {
       this.value = value;

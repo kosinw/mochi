@@ -1,1 +1,1 @@
-export { OpCode } from './types';
+export * from './chunk';
