@@ -1,4 +1,4 @@
 export * from './expr';
-export * from './codegen';
+export * from './emitter';
 export * from './parser';
 export * from './value';

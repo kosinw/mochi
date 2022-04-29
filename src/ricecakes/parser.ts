@@ -2,7 +2,6 @@ import { Expr } from "./expr";
 
 import parser from "@lilusoft/s-expression";
 import assert from 'assert';
-import { List } from './list';
 import { ParserValue } from "./value";
 
 // TODO(kosinw): Add test suite for parser.
@@ -47,28 +46,17 @@ export namespace Parser {
         else { return ParserValue.symbol(l); }
       };
 
-      const parseList = (l: NaiveParser.NaiveTree): List<NaiveParser.NaiveTree> => {
-        if (l.length === 0) {
-          return List.nil;
-        } else if (l[1] === '.') {
-          assert(l.length === 3, `syntax error: improper dotted list was supplied ${this.buffer}`);
-          return List.cons(parseInternal(l[0]), parseInternal(l[2]));
-        } else {
-          return List.cons(parseInternal(l[0]), parseList(l.slice(1)));
-        }
+      const parseList = (l: string[]): Expr[] => {
+        return l.map(x => parseInternal(x));
       };
 
-      const parseInternal = (l: NaiveParser.NaiveTree): Expr =>
+      const parseInternal = (l: string | string[]): Expr =>
         typeof l === 'string' ?
           Expr.atom(parseAtom(l)) :
           Expr.list(parseList(l));
 
       return parseInternal(parser.parse(this.buffer));
     }
-  }
-
-  namespace NaiveParser {
-    export type NaiveTree = string | NaiveTree[];
   }
 }
 

@@ -1,29 +1,29 @@
-import { List } from "./list";
 import { ParserValue } from "./value";
 
 // TODO(kosinw): Add test suite for abstract syntax tree.
 
 export interface ExprVisitor {
-  onList<T>(list: ListExpr): T;
-  onAtom<T>(atom: AtomExpr): T;
+  onList(list: ListExpr): void;
+  onAtom(atom: AtomExpr): void;
 };
 
 export enum ExprType {
-  Atom = 'atom',
-  List = 'list'
+  ATOM = 'atom',
+  LIST = 'list'
 }
 
 interface BaseExpr {
-  readonly type: ExprType;
-  accept<T>(visitor: ExprVisitor): T;
+  accept(visitor: ExprVisitor): void;
 }
 
 export type ListExpr = BaseExpr & {
-  readonly type: ExprType.List;
+  readonly type: ExprType.LIST;
+  readonly list: Expr[];
 };
 
 export type AtomExpr = BaseExpr & {
-  readonly type: ExprType.Atom;
+  readonly type: ExprType.ATOM;
+  readonly value: ParserValue;
 }
 
 export type Expr =
@@ -35,20 +35,20 @@ export namespace Expr {
     return new AtomExpr(value);
   }
 
-  export function list(l: List<Expr>): ListExpr {
+  export function list(l: Expr[]): ListExpr {
     return new ListExpr(l);
   }
 
   class ListExpr implements ListExpr {
-    public readonly type = ExprType.List;
+    public readonly type = ExprType.LIST;
 
-    public constructor(public readonly list: List<Expr>) { }
+    public constructor(public readonly list: Expr[]) { }
 
     /**
      * @inheritdoc
      */
-    public accept<T>(visitor: ExprVisitor): T {
-      return visitor.onList(this);
+    public accept(visitor: ExprVisitor): void {
+      visitor.onList(this);
     }
 
     public toString(): string {
@@ -57,15 +57,15 @@ export namespace Expr {
   }
 
   class AtomExpr implements AtomExpr {
-    public readonly type = ExprType.Atom;
+    public readonly type = ExprType.ATOM;
 
     public constructor(public readonly value: ParserValue) { }
 
     /**
      * @inheritdoc
      */
-    public accept<T>(visitor: ExprVisitor): T {
-      return visitor.onAtom(this);
+    public accept(visitor: ExprVisitor): void {
+      visitor.onAtom(this);
     }
 
     public toString(): string {

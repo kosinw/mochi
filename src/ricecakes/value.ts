@@ -1,25 +1,21 @@
 export enum ParserValueType {
-  Number = 'number',
-  Symbol = 'symbol',
-  String = 'string'
+  NUMBER = 'number',
+  SYMBOL = 'symbol',
+  STRING = 'string'
 };
 
-interface BaseParserValue {
-  readonly type: ParserValueType;
-};
-
-export type NumberParserValue = BaseParserValue & {
-  readonly type: ParserValueType.Number;
+export type NumberParserValue = {
+  readonly type: ParserValueType.NUMBER;
   readonly value: number;
 };
 
-export type SymbolParserValue = BaseParserValue & {
-  readonly type: ParserValueType.Symbol;
+export type SymbolParserValue = {
+  readonly type: ParserValueType.SYMBOL;
   readonly value: string;
 }
 
-export type StringParserValue = BaseParserValue & {
-  readonly type: ParserValueType.String;
+export type StringParserValue = {
+  readonly type: ParserValueType.STRING;
   readonly value: string;
 }
 
@@ -64,7 +60,7 @@ export namespace ParserValue {
 
   class NumberParserValue implements NumberParserValue {
     public readonly value: number;
-    public readonly type = ParserValueType.Number;
+    public readonly type = ParserValueType.NUMBER;
 
     public constructor(value: number) {
       this.value = value;
@@ -77,7 +73,7 @@ export namespace ParserValue {
 
   class SymbolParserValue implements SymbolParserValue {
     public readonly value: string;
-    public readonly type = ParserValueType.Symbol;
+    public readonly type = ParserValueType.SYMBOL;
 
     public constructor(value: string) {
       this.value = value;
@@ -90,7 +86,7 @@ export namespace ParserValue {
 
   class StringParserValue implements StringParserValue {
     public readonly value: string;
-    public readonly type = ParserValueType.String;
+    public readonly type = ParserValueType.STRING;
 
     public constructor(value: string) {
       this.value = value;

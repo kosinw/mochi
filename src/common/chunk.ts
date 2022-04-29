@@ -1,3 +1,6 @@
+import { assert } from "console";
+import { FlourValue } from "./value";
+
 /**
  * A representation of a Flour bytecode instruction. 
  */
@@ -52,7 +55,6 @@ export interface FlourChunk {
 }
 
 // TODO(kosinw): Make these into proper value types. 
-type FlourValue = any;
 type FlourObject = any;
 
 type FlourPtr = number;
@@ -65,7 +67,7 @@ export namespace FlourChunk {
   class NaiveFlourChunk implements FlourChunk {
     public readonly name: string;
     private readonly const: FlourValue[];
-    private readonly text: FlourOpCode[];
+    private readonly text: number[];
     private readonly data: FlourObject[];
 
     public constructor(name: string) {
@@ -78,8 +80,21 @@ export namespace FlourChunk {
     /**
      * @inheritdoc
      */
-    public emitConstant(v: any): void {
-      throw new Error("Method not implemented.");
+    public emitConstant(v: FlourValue): void {
+      this.emitOpcode(FlourOpCode.CONSTANT);
+      const ptr = this.makeConstant(v);
+
+      for (let shift = 0; shift < 4; ++shift) {
+        const mask = 0xff << (shift * 8);
+        const value = (ptr & mask) >> (shift * 8);
+        assert(value < 255);
+        this.text.push(value);
+      }
+    }
+
+    private makeConstant(v: FlourValue): number {
+      this.const.push(v);
+      return this.const.length - 1;
     }
 
     /**
