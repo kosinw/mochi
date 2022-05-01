@@ -24,18 +24,15 @@ export enum FlourInstruction {
   SUBTRACT,
   MULTIPLY,
   DIVIDE,
-  // POW,
-  // MOD,
+  POW,
+  MOD,
   NOT,
   NEGATE,
   LOG,
   JUMP,
   JUMP_IF_FALSE,
-  // LOOP,
   CALL,
-  // INVOKE,
   RETURN,
-  // METHOD
 }
 
 /**
