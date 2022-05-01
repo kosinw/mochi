@@ -23,18 +23,15 @@ export enum FlourOpCode {
   SUBTRACT,
   MULTIPLY,
   DIVIDE,
-  // POW,
-  // MOD,
+  POW,
+  MOD,
   NOT,
   NEGATE,
   CONSOLE_LOG,
   JUMP,
   JUMP_IF_FALSE,
-  // LOOP,
   CALL,
-  // INVOKE,
   RETURN,
-  // METHOD
 }
 
 /**
