@@ -4,17 +4,21 @@ export enum ParserValueType {
   STRING = 'string'
 };
 
-export type NumberParserValue = {
+interface BaseParserValue {
+  serialize(): ArrayBuffer;
+}
+
+export type NumberParserValue = BaseParserValue & {
   readonly type: ParserValueType.NUMBER;
   readonly value: number;
 };
 
-export type SymbolParserValue = {
+export type SymbolParserValue = BaseParserValue & {
   readonly type: ParserValueType.SYMBOL;
   readonly value: string;
 }
 
-export type StringParserValue = {
+export type StringParserValue = BaseParserValue & {
   readonly type: ParserValueType.STRING;
   readonly value: string;
 }
@@ -35,7 +39,7 @@ export namespace ParserValue {
    * @returns a boxed number value
    */
   export function number(n: number): NumberParserValue {
-    return new NumberParserValue(n);
+    return new _NumberParserValue(n);
   }
 
   /**
@@ -45,7 +49,7 @@ export namespace ParserValue {
    * @returns a boxed symbol value
    */
   export function symbol(v: string): SymbolParserValue {
-    return new SymbolParserValue(v);
+    return new _SymbolParserValue(v);
   }
 
   /**
@@ -55,15 +59,19 @@ export namespace ParserValue {
    * @returns a boxed string
    */
   export function string(v: string): StringParserValue {
-    return new StringParserValue(v);
+    return new _StringParserValue(v);
   }
 
-  class NumberParserValue implements NumberParserValue {
+  class _NumberParserValue implements NumberParserValue {
     public readonly value: number;
     public readonly type = ParserValueType.NUMBER;
 
     public constructor(value: number) {
       this.value = value;
+    }
+    
+    serialize(): ArrayBuffer {
+      throw new Error("Method not implemented.");
     }
 
     public toString(): string {
@@ -71,12 +79,16 @@ export namespace ParserValue {
     }
   }
 
-  class SymbolParserValue implements SymbolParserValue {
+  class _SymbolParserValue implements SymbolParserValue {
     public readonly value: string;
     public readonly type = ParserValueType.SYMBOL;
 
     public constructor(value: string) {
       this.value = value;
+    }
+    
+    serialize(): ArrayBuffer {
+      throw new Error("Method not implemented.");
     }
 
     public toString(): string {
@@ -84,12 +96,16 @@ export namespace ParserValue {
     }
   }
 
-  class StringParserValue implements StringParserValue {
+  class _StringParserValue implements StringParserValue {
     public readonly value: string;
     public readonly type = ParserValueType.STRING;
 
     public constructor(value: string) {
       this.value = value;
+    }
+    
+    serialize(): ArrayBuffer {
+      throw new Error("Method not implemented.");
     }
 
     public toString(): string {
