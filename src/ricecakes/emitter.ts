@@ -1,4 +1,4 @@
-import { FlourChunk, FlourOpCode, FlourValue } from '@module/common';
+import { FlourChunk, FlourInstruction, FlourValue } from '@module/common';
 import assert from 'assert';
 import { Expr, ExprType, ExprVisitor } from './expr';
 import { ParserValueType } from './value';
@@ -19,20 +19,35 @@ export module BytecodeEmitter {
   }
 
   class NaiveBytecodeEmitter implements BytecodeEmitter {
-    public compile(expr: Expr): FlourChunk {
-      const chunk = FlourChunk.create("<anonymous>");
+    currentChunk: FlourChunk;
 
+    constructor() {
+      this.currentChunk = FlourChunk.create();
+    }
+
+    private emitInstruction(op: FlourInstruction): void {
+      this.currentChunk.writeInstruction(op);
+    }
+
+    private emitConstant(value: FlourValue): void {
+      this.currentChunk.writeInstruction(FlourInstruction.CONSTANT);
+      this.currentChunk.writeConstant(value);
+    }
+
+    public compile(expr: Expr): FlourChunk {
       const visitor: ExprVisitor = {
-        onAtom(atom) {
+        onAtom: (atom) => {
           switch (atom.value.type) {
             case ParserValueType.NUMBER:
-              chunk.emitConstant(FlourValue.number(atom.value.value));
+              this.emitConstant(
+                FlourValue.number(atom.value.value)
+              );
               break;
             default:
               throw new Error('not implemented yet!');
           }
         },
-        onList(list) {
+        onList: (list) => {
           const exp = list.list;
 
           if (exp.length === 3 &&
@@ -44,16 +59,16 @@ export module BytecodeEmitter {
             exp.slice(1).forEach(x => x.accept(visitor));
 
             if (car === 'b:+') {
-              chunk.emitOpcode(FlourOpCode.ADD);
+              this.emitInstruction(FlourInstruction.ADD);
               return;
             } else if (car === 'b:-') {
-              chunk.emitOpcode(FlourOpCode.SUBTRACT);
+              this.emitInstruction(FlourInstruction.SUBTRACT);
               return;
             } else if (car === 'b:*') {
-              chunk.emitOpcode(FlourOpCode.MULTIPLY);
+              this.emitInstruction(FlourInstruction.MULTIPLY);
               return;
             } else if (car === 'b:/') {
-              chunk.emitOpcode(FlourOpCode.DIVIDE);
+              this.emitInstruction(FlourInstruction.DIVIDE);
               return;
             }
           }
@@ -64,9 +79,9 @@ export module BytecodeEmitter {
 
       expr.accept(visitor);
 
-      chunk.emitOpcode(FlourOpCode.RETURN);
+      this.emitInstruction(FlourInstruction.RETURN);
 
-      return chunk;
+      return this.currentChunk;
     }
   }
 };

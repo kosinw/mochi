@@ -1,10 +1,11 @@
-import { assert } from "console";
+import assert from "assert";
+import { Buffer } from 'buffer';
 import { FlourValue } from "./value";
 
 /**
  * A representation of a Flour bytecode instruction. 
  */
-export enum FlourOpCode {
+export enum FlourInstruction {
   CONSTANT = 0,
   NIL,
   TRUE,
@@ -27,7 +28,7 @@ export enum FlourOpCode {
   // MOD,
   NOT,
   NEGATE,
-  CONSOLE_LOG,
+  LOG,
   JUMP,
   JUMP_IF_FALSE,
   // LOOP,
@@ -45,77 +46,51 @@ export enum FlourOpCode {
  * longer constants that cannot be stored on heap memory are stored in (.data)
  */
 export interface FlourChunk {
-  readonly name: string;
+  writeInstruction(n: FlourInstruction): void;
+  writeConstant(v: FlourValue): void;
 
-  emitConstant(v: FlourValue): void;
-  allocateObject(v: FlourObject): FlourPtr;
-  emitOpcode(b: FlourOpCode): void;
-
-  serialize(): ArrayBuffer;
+  serialize(): Buffer;
 }
 
 // TODO(kosinw): Make these into proper value types. 
 type FlourObject = any;
 
-type FlourPtr = number;
-
 export namespace FlourChunk {
-  export function create(name: string) {
-    return new NaiveFlourChunk(name);
+  export function create() {
+    return new NaiveFlourChunk();
   }
 
+  // TODO(kosinw): Replace this with a faster version
+  // that uses a dynamically growing buffer.
   class NaiveFlourChunk implements FlourChunk {
-    public readonly name: string;
-    private readonly const: FlourValue[];
-    private readonly text: number[];
-    private readonly data: FlourObject[];
+    readonly constantPool: FlourValue[];
+    readonly instructions: (FlourInstruction | number)[];
+    readonly dataSection: FlourObject[];
 
-    public constructor(name: string) {
-      this.name = name;
-      this.const = [];
-      this.text = [];
-      this.data = [];
+    constructor() {
+      this.constantPool = [];
+      this.instructions = [];
+      this.dataSection = [];
     }
 
-    /**
-     * @inheritdoc
-     */
-    public emitConstant(v: FlourValue): void {
-      this.emitOpcode(FlourOpCode.CONSTANT);
-      const ptr = this.makeConstant(v);
-
-      for (let shift = 0; shift < 4; ++shift) {
-        const mask = 0xff << (shift * 8);
-        const value = (ptr & mask) >> (shift * 8);
-        assert(value < 255);
-        this.text.push(value);
-      }
+    writeInstruction(n: FlourInstruction): void {
+      this.instructions.push(n);
     }
 
-    private makeConstant(v: FlourValue): number {
-      this.const.push(v);
-      return this.const.length - 1;
+    writeConstant(v: FlourValue): void {
+      this.constantPool.push(v);
+      const ptr = this.constantPool.length - 1;
+      this.instructions.push(ptr);
     }
 
-    /**
-     * @inheritdoc
-     */
-    public allocateObject(v: any): number {
+    alloc(v: FlourObject): number {
       throw new Error("Method not implemented.");
     }
 
-    /**
-     * @inheritdoc
-     */
-    public emitOpcode(b: FlourOpCode): void {
-      this.text.push(b);
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public serialize(): ArrayBuffer {
-      throw new Error("Method not implemented.");
+    serialize(): Buffer {
+      return Buffer.concat(
+        this.constantPool.map(c => c.serialize())
+      );
     }
   }
 }
