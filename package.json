@@ -11,17 +11,24 @@
   },
   "scripts": {
     "compile": "tsc",
-    "start": "ts-node -r tsconfig-paths/register src/index.ts"
+    "start": "ts-node -r tsconfig-paths/register src/index.ts",
+    "test": "ts-mocha --paths test/*.ts"
   },
   "devDependencies": {
     "@types/mocha": "^9.1.1",
     "@types/node": "^17.0.29",
+    "@types/python-struct": "^1.0.0",
     "mocha": "^9.2.2",
     "ts-node": "^10.7.0",
     "tsconfig-paths": "^3.14.1",
-    "typescript": "^4.6.3"
+    "ts-mocha": "^9.0.2",
+    "typescript": "^4.6.3",
+    "source-map-support": "^0.5.21"
   },
   "dependencies": {
-    "@lilusoft/s-expression": "^3.0.5"
+    "@arrows/multimethod": "^2.1.0",
+    "@badrap/result": "^0.2.8",
+    "@lilusoft/s-expression": "^3.0.5",
+    "python-struct": "^1.1.3"
   }
 }
