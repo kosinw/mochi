@@ -14,8 +14,10 @@
 ///
 /// You should have received a copy of the GNU Lesser General Public License
 /// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+///
 
 import * as struct from "python-struct";
+import * as flour from "@module/flour";
 import { Multi, multi, method } from "@arrows/multimethod";
 import { Result } from "@badrap/result";
 import assert from "assert";
@@ -248,14 +250,25 @@ export function tokenizer(source: string): Tokenizer {
 //
 ////////////////////////////////////////////////////////
 
+type Parser = {
+  current: Token;
+  previous: Token;
+}
+
+////////////////////////////////////////////////////////
+// 
+// CODEGEN
+//
+////////////////////////////////////////////////////////
+
 /**
  * Entrypoint for the Ricecakes Scheme compiler.
  * Compiles source code string into Flour bytecode object buffer.
  * 
  * @param source a source program
  */
-export function compile(source: string): Result<FlourObjectFile> {
+export function compile(source: string): Result<flour.Chunk> {
   const scanner = tokenizer(source);
 
-  return Result.ok(0);
+  return Result.err(Error('not implemented yet!'));
 }
