@@ -19,10 +19,81 @@
 import assert from 'assert';
 import * as ricecakes from '@module/compiler';
 
+describe('parser tests', function () {
+  it('covers parsing a number', function () {
+    const sourceCode = '42';
+    const scanner = ricecakes.makeTokenizer(sourceCode);
+    const parser = ricecakes.makeParser(scanner);
+
+    // console.log(ricecakes.expression(parser));
+  });
+
+  it('covers parsing a symbol', function () {
+    const sourceCode = 'gangster';
+    const scanner = ricecakes.makeTokenizer(sourceCode);
+    const parser = ricecakes.makeParser(scanner);
+
+    // console.log(ricecakes.expression(parser));
+  });
+
+  it('covers parsing a one element list', function () {
+    const sourceCode = '(foo)';
+    const scanner = ricecakes.makeTokenizer(sourceCode);
+    const parser = ricecakes.makeParser(scanner);
+
+    // console.dir(ricecakes.expression(parser), { depth: null });
+  });
+
+  it('covers parsing a three element list', function () {
+    const sourceCode = '(+ 2 3)';
+    const scanner = ricecakes.makeTokenizer(sourceCode);
+    const parser = ricecakes.makeParser(scanner);
+
+    // console.dir(ricecakes.expression(parser), { depth: null });
+  });
+
+  it('covers parsing a reader macro', function () {
+    const sourceCode = "'(+ 2 3)";
+    const scanner = ricecakes.makeTokenizer(sourceCode);
+    const parser = ricecakes.makeParser(scanner);
+
+    // console.dir(ricecakes.expression(parser), { depth: null });
+  });
+
+  it('covers parsing a factorial program', function () {
+    const sourceCode = `
+    (define (factorial n)
+      (if (< n 1)
+        1
+        (* n (factorial (- n 1)))))
+    `;
+    const scanner = ricecakes.makeTokenizer(sourceCode);
+    const parser = ricecakes.makeParser(scanner);
+
+    // console.dir(ricecakes.expression(parser), { depth: null });
+  });
+
+  it('covers parsing multiple functions', function () {
+    const sourceCode = `
+    (define (factorial n)
+      (if (< n 1)
+        1
+        (* n (factorial (- n 1)))))
+    
+      (define (smacktorial n) (+ n 1))
+    `;
+    const scanner = ricecakes.makeTokenizer(sourceCode);
+    const parser = ricecakes.makeParser(scanner);
+
+    // console.dir(ricecakes.expression(parser), { depth: null });
+    // console.dir(ricecakes.expression(parser), { depth: null });
+  });
+});
+
 describe('lexer tests', function () {
   it('covers tokenizing a number', function () {
     const sourceCode = `42`;
-    const scanner = ricecakes.tokenizer(sourceCode);
+    const scanner = ricecakes.makeTokenizer(sourceCode);
     const token = ricecakes.nextToken(scanner);
 
     assert.strictEqual(token.unwrap().variant, ricecakes.TokenVariant.DATUM);
@@ -31,7 +102,7 @@ describe('lexer tests', function () {
 
   it('covers tokenizing a symbol', function () {
     const sourceCode = `foo-bar`;
-    const scanner = ricecakes.tokenizer(sourceCode);
+    const scanner = ricecakes.makeTokenizer(sourceCode);
     const token = ricecakes.nextToken(scanner);
 
     assert.strictEqual(token.unwrap().variant, ricecakes.TokenVariant.DATUM);
@@ -40,7 +111,7 @@ describe('lexer tests', function () {
 
   it('covers tokenizing a list', function () {
     const sourceCode = `(foo bar)`;
-    const scanner = ricecakes.tokenizer(sourceCode);
+    const scanner = ricecakes.makeTokenizer(sourceCode);
 
     assert.strictEqual(ricecakes.nextToken(scanner).unwrap().variant, ricecakes.TokenVariant.LEFT_PAREN);
     assert.strictEqual(ricecakes.nextToken(scanner).unwrap().variant, ricecakes.TokenVariant.DATUM);
@@ -51,7 +122,7 @@ describe('lexer tests', function () {
 
   it('covers tokenizing a dotted pair', function () {
     const sourceCode = "(foo . bar)";
-    const scanner = ricecakes.tokenizer(sourceCode);
+    const scanner = ricecakes.makeTokenizer(sourceCode);
 
     assert.strictEqual(ricecakes.nextToken(scanner).unwrap().variant, ricecakes.TokenVariant.LEFT_PAREN);
     assert.strictEqual(ricecakes.nextToken(scanner).unwrap().variant, ricecakes.TokenVariant.DATUM);
@@ -63,7 +134,7 @@ describe('lexer tests', function () {
 
   it('covers tokenizing a split line', function () {
     const sourceCode = "foo\nbar\nbaz";
-    const scanner = ricecakes.tokenizer(sourceCode);
+    const scanner = ricecakes.makeTokenizer(sourceCode);
 
     assert.strictEqual(ricecakes.nextToken(scanner).unwrap().variant, ricecakes.TokenVariant.DATUM);
     assert.strictEqual(ricecakes.nextToken(scanner).unwrap().variant, ricecakes.TokenVariant.DATUM);
