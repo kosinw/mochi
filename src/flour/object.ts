@@ -1,5 +1,5 @@
 ///
-/// File: flour/chunk.ts 
+/// File: flour/object.ts 
 /// Copyright (c) 2022 <kosinw@mit.edu>
 ///
 /// This program is free software: you can redistribute it and/or modify
