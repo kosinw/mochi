@@ -18,6 +18,30 @@
 
 import assert from 'assert';
 import * as ricecakes from '@module/compiler';
+import * as flour from '@module/flour';
+
+describe('compiler tests', function () {
+  it('covers compiling a number', function () {
+    const sourceCode = '42';
+    const object = ricecakes.compile(sourceCode);
+
+    // console.log(flour.disassemble(object));
+  });
+
+  it('covers compiling a nil object', function () {
+    const sourceCode = '()';
+    const object = ricecakes.compile(sourceCode);
+
+    // console.log(flour.disassemble(object));
+  });
+
+  it('covers compiling a unary primitive call', function () {
+    const sourceCode = '(* 0001 42 993 44444 885 26 1237)';
+    const object = ricecakes.compile(sourceCode);
+
+    console.log(flour.disassemble(object));
+  });
+})
 
 describe('parser tests', function () {
   it('covers parsing a number', function () {

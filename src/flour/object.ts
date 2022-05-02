@@ -1,5 +1,5 @@
 ///
-/// File: flour/chunk.ts 
+/// File: flour/object.ts 
 /// Copyright (c) 2022 <kosinw@mit.edu>
 ///
 /// This program is free software: you can redistribute it and/or modify
@@ -17,7 +17,9 @@
 ///
 
 import { FlourOpcode, FlourUnboxedTypeCode } from "./opcode";
+import assert from "assert";
 
+const WORD_SIZE = 4;
 export type Ptr = number;
 
 export enum FlourBoxedTypeCode {
@@ -52,29 +54,51 @@ export type UnboxedValue =
   | { variant: FlourUnboxedTypeCode.PTR, value: Ptr };
 export const UNBOXED_BYTE_LENGTH = 8;
 
-export enum UnboxedRepresentation{
-  TYPE_CODE,
-  DATA
+/**
+ * Creates a new Flour fixed number.
+ * 
+ * @param n a number
+ * @returns a new Flour fixnum
+ */
+export function fixnum(n: number): UnboxedValue {
+  // TODO(kosinw): Assert 32-bit signed integer.
+  return {
+    variant: UnboxedValueVariant.FIXNUM,
+    value: n
+  }
 }
 
-export const UNBOXED_FORMAT = [
-  [UnboxedRepresentation.TYPE_CODE, 1],
-  [UnboxedRepresentation.DATA, 4]
-];
+function disassembleUnboxed(unboxed: UnboxedValue): string {
+  switch (unboxed.variant) {
+    case UnboxedValueVariant.BOOLEAN:
+      return unboxed.value ? "#t" : "#f";
+    case UnboxedValueVariant.FIXNUM:
+      return unboxed.value.toString();
+    case UnboxedValueVariant.NIL:
+      return 'nil';
+    case UnboxedValueVariant.PTR:
+      return `<ptr ${unboxed.value}>`;
+    default:
+      throw Error('unknown unboxed value variant');
+  }
+}
 
 /**
  * Represents a singular instruction in Flour bytecode specification.
  * An instruction consists of a byte-long opcode and an optional
- * argument which is typically a  4 byte memory reference.
+ * argument which is typically a memory reference.
  */
 export type Instruction = {
   opcode: FlourOpcode,
+  line?: number,
   argument?: number
 };
 
-export enum InstructionRepresentation{
-  OP_CODE,
-  DATA
+function disassembleConstantInstruction(
+  chunk: Chunk,
+  offset: number
+): string {
+  return ` ${offset.toString().padStart(4, '0')} '${disassembleUnboxed(chunk.constants[offset])}'`;
 }
 
 export const INSTRUCTION_FORMAT = [
@@ -82,7 +106,53 @@ export const INSTRUCTION_FORMAT = [
   [InstructionRepresentation.DATA, 4]
 ];
 export const INSTRUCTION_BYTE_LENGTH = 5;
+/**
+ * Disassembles a single instruction.
+ * 
+ * @param instruction an instruction
+ * @param chunk the chunk the instruction is from
+ * @param offset the offset from the first instruction
+ * @returns a disassembly string and new offset
+ */
+function disassembleInstruction(
+  instruction: Instruction,
+  chunk: Chunk,
+  offset: number
+): [number, string] {
+  let line = `${offset.toString().padStart(4, '0')} `;
 
+  if (instruction.line) {
+    line += `${instruction.line.toString().padStart(4, ' ')} `;
+  } else {
+    line += `   | `;
+  }
+
+  line += `${FlourOpcode[instruction.opcode].padEnd(16, ' ')}`;
+
+  switch (instruction.opcode) {
+    case FlourOpcode.CONSTANT:
+      const { argument } = instruction;
+      assert(argument !== undefined);
+      line += disassembleConstantInstruction(chunk, argument);
+      break;
+    default:
+      break;
+  }
+  return [instruction.argument !== undefined ? 1 + WORD_SIZE : 1, line];
+}
+
+/**
+ * Creates a new bytecode instruction which only has an opcode.
+ * 
+ * @param opcode an opcode
+ * @returns an instruction which only takes an opcode
+ */
+export function single(opcode: FlourOpcode, line?: number): Instruction {
+  return {
+    opcode,
+    line
+  }
+}
 
 /**
  * Represents a singular "chunk" in Flour bytecode specification.
@@ -91,13 +161,74 @@ export const INSTRUCTION_BYTE_LENGTH = 5;
  * Typically one chunk corresponds to one lambda in Scheme source language.
  */
 export type Chunk = {
-  // name: string;
-  data_start: Number;
-  instructions_start: Number;
+  name: string;
   constants: UnboxedValue[];
   data: BoxedValue[];
   instructions: Instruction[];
 };
+
+function disassembleChunk(chunk: Chunk, object: ObjectFile): string {
+  const buffer = [`=== ${chunk.name} ===`];
+  let offset = 0;
+
+  for (let instruction of chunk.instructions) {
+    let [n, disas] = disassembleInstruction(instruction, chunk, offset);
+    buffer.push(disas);
+    offset = n;
+  }
+
+  return buffer.join('\n')
+}
+
+/**
+ * Emits a bytecode instruction onto a Flour chunk.
+ * 
+ * @param chunk a chunk
+ * @param instruction a flour instruction
+ */
+export function emitInstruction(chunk: Chunk, instruction: Instruction): void {
+  chunk.instructions.push(instruction);
+}
+
+// TODO(kosinw): Make sure rep invariants aren't broken (like practical limits)
+// to amount of constants in chunk.
+/**
+ * Adds a new constant to the given chunk.
+ * 
+ * @param chunk a chunk
+ * @param value a constant value
+ * @returns pointer to constant value
+ */
+function makeConstant(chunk: Chunk, value: UnboxedValue): number {
+  const n = chunk.constants.push(value) - 1;
+  return n;
+}
+
+/**
+ * Emits a CONSTANT bytecode instruction onto a Flour chunk.
+ * 
+ * @param chunk a chunk
+ * @param value a constant value
+ */
+export function emitConstantInstruction(chunk: Chunk, value: UnboxedValue, line?: number): void {
+  chunk.instructions.push({
+    opcode: FlourOpcode.CONSTANT,
+    argument: makeConstant(chunk, value),
+    line
+  });
+}
+
+/**
+ * @returns a new chunk
+ */
+export function makeChunk(name: string): Chunk {
+  return {
+    name,
+    constants: [],
+    data: [],
+    instructions: []
+  };
+}
 
 /**
  * Represents an object file in Flour bytecode specification.
@@ -106,5 +237,26 @@ export type Chunk = {
  * by the Dango virtual machine.
  */
 export type ObjectFile = {
-  chunks: Chunk[];
+  chunks: Map<string, Chunk>;
+}
+
+/**
+ * @returns a new object file.
+ */
+export function makeObjectFile(): ObjectFile {
+  return {
+    chunks: new Map()
+  };
+}
+
+/**
+ * Returns the disassembled bytecode report for a given object file.
+ * 
+ * @param object an object file
+ * @returns a disassembly of object file
+ */
+export function disassemble(object: ObjectFile): string {
+  return [...object.chunks.values()]
+    .map(chunk => disassembleChunk(chunk, object))
+    .join('\n');
 }

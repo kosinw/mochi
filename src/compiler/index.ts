@@ -20,6 +20,7 @@ import * as flour from "@module/flour";
 import assert from "assert";
 import { Multi, multi, method } from "@arrows/multimethod";
 import { Result } from "@badrap/result";
+import { FlourOpcode, UnboxedValueVariant } from "@module/flour";
 
 ////////////////////////////////////////////////////////
 //
@@ -34,7 +35,6 @@ export enum DatumVariant {
   SYMBOL = 'symbol',
   // STRING
 };
-
 
 /**
  * A Scheme datum as defined by the R5RS.
@@ -99,8 +99,8 @@ const nextTokenGeneric: NextTokenGeneric = multi(
   method("'", makeTokenCombinator(TokenVariant.READER_MACRO, ReaderMacro.QUOTE)),
   method("`", makeTokenCombinator(TokenVariant.READER_MACRO, ReaderMacro.QUASIQUOTE)),
   method(",", makeTokenCombinator(TokenVariant.READER_MACRO, ReaderMacro.UNQUOTE)), // TODO(kosinw): This might actually be unquote-splicing
-  method("(", makeTokenCombinator(TokenVariant.LEFT_PAREN)),
-  method(")", makeTokenCombinator(TokenVariant.RIGHT_PAREN)),
+  method(/(\(|\{|\[)/, makeTokenCombinator(TokenVariant.LEFT_PAREN)),
+  method(/(\)|\}|\])/, makeTokenCombinator(TokenVariant.RIGHT_PAREN)),
   method(".", makeTokenCombinator(TokenVariant.DOT)),
   method("", makeTokenCombinator(TokenVariant.EOF, undefined, 0)),
   method(isNumeric, (x: Tokenizer): Result<Token> => { // number?
@@ -248,7 +248,7 @@ export enum SyntaxTreeVariant {
 /**
  * Represents an abstract syntax tree for the Scheme programming language.
  */
-export type SyntaxTree = { start: number; length: number; } &
+export type SyntaxTree = { start: number; length: number; line: number; } &
   (
     | { variant: SyntaxTreeVariant.DATUM, value: Datum }
     | { variant: SyntaxTreeVariant.LIST, value: SyntaxTree[] }
@@ -264,21 +264,6 @@ type Parser = {
   previous: Token;
   scanner: Tokenizer;
 };
-
-/**
- * Consumes a token of type variant from the parser.
- * 
- * @param parser a parser
- * @param variant a token type
- */
-function consume(parser: Parser, variant: TokenVariant): Result<Token> {
-  if (check(parser, variant)) {
-    advance(parser);
-    return Result.ok(parser.current);
-  }
-
-  return Result.err(Error(`Expected ${variant} token on line ${parser.current.line}, instead got ${parser.current.variant}`));
-}
 
 /**
  * Tests if parser currently matches variant.
@@ -336,6 +321,7 @@ type ExpressionGeneric = Multi & {
   (x: Parser): SyntaxTree;
 };
 
+// TODO(kosinw): Convert this to a Result<SyntaxTree>
 const expressionGeneric: ExpressionGeneric = multi(
   (x: Parser) => x.current.variant,
   method(TokenVariant.DATUM, (x: Parser): SyntaxTree => {
@@ -344,12 +330,13 @@ const expressionGeneric: ExpressionGeneric = multi(
       variant: SyntaxTreeVariant.DATUM,
       value: x.current.value,
       start: x.current.start,
-      length: x.current.length
+      length: x.current.length,
+      line: x.current.line
     };
   }),
   method(TokenVariant.READER_MACRO, (x: Parser): SyntaxTree => {
     assert(x.current.variant === TokenVariant.READER_MACRO);
-    const { start, value } = x.current;
+    const { start, value, line } = x.current;
     advance(x);
     const subexpr = expression(x);
     const extra = ReaderMacro.UNQUOTE_SPLICING === value ? 2 : 1;
@@ -363,24 +350,26 @@ const expressionGeneric: ExpressionGeneric = multi(
             value: value
           },
           start: start,
-          length: extra
+          length: extra,
+          line
         },
         subexpr
       ],
       start: start,
-      length: subexpr.length + extra
+      length: subexpr.length + extra,
+      line
     };
   }),
   method(TokenVariant.LEFT_PAREN, (x: Parser): SyntaxTree => {
     assert(x.current.variant === TokenVariant.LEFT_PAREN);
     let subexprs = [];
-    const { start } = x.current;
+    const { start, line } = x.current;
 
     advance(x);
 
     while (!check(x, TokenVariant.RIGHT_PAREN)) {
       if (match(x, TokenVariant.EOF)) {
-        throw new Error("Unexpected EOF reached!");
+        throw Error("Unexpected EOF reached!");
       }
 
       subexprs.push(expression(x));
@@ -390,6 +379,7 @@ const expressionGeneric: ExpressionGeneric = multi(
       variant: SyntaxTreeVariant.LIST,
       value: subexprs,
       start: start,
+      line,
       length: x.current.start - start + 1
     };
   }),
@@ -397,14 +387,15 @@ const expressionGeneric: ExpressionGeneric = multi(
     return {
       variant: SyntaxTreeVariant.EOF,
       start: x.current.start,
+      line: x.current.line,
       length: x.current.length
     }
   }),
   method(TokenVariant.RIGHT_PAREN, (x: Parser): SyntaxTree => {
-    throw new Error("Unexpected ')' reached!");
+    throw Error("Unexpected ')' reached!");
   }),
   method((x: Parser): SyntaxTree => {
-    throw new Error(`Unexpected token reached, ${x.current}`);
+    throw Error(`Unexpected token reached, ${x.current}`);
   })
 );
 
@@ -427,20 +418,126 @@ export function expression(parser: Parser): SyntaxTree {
 ////////////////////////////////////////////////////////
 
 /**
- * Entrypoint for the Ricecakes Scheme compiler.
- * Compiles source code string into Flour bytecode object buffer.
+ * Represents a unit of code that is currently being compiled.
+ */
+type CompilationUnit = {
+  parent?: CompilationUnit;
+  chunk: flour.Chunk;
+  objectFile: flour.ObjectFile;
+};
+
+/**
+ * Constructs a new compilation unit, individual units are made for each procedure.
+ * 
+ * @param objectFile a flour object file
+ * @param parent a parent compilation unit
+ * @returns a new compilation unit
+ */
+function makeCompilationUnit(
+  name: string,
+  objectFile: flour.ObjectFile,
+  parent?: CompilationUnit
+): CompilationUnit {
+  const chunk = flour.makeChunk(name);
+  objectFile.chunks.set(name, chunk);
+
+  return {
+    parent,
+    chunk: chunk,
+    objectFile
+  };
+}
+
+/**
+ * Writes out epilogue for compilation unit.
+ * 
+ * @param unit a compilation unit
+ * @returns parent compilation unit
+ */
+function unitEpilogue(unit: CompilationUnit): CompilationUnit | undefined {
+  flour.emitInstruction(unit.chunk, flour.single(FlourOpcode.RETURN));
+  return unit.parent;
+}
+
+type CompileDatumGeneric = Multi & {
+  (datum: Datum, unit: CompilationUnit, line: number): void;
+};
+
+const compileDatum: CompileDatumGeneric = multi(
+  (datum: Datum, unit: CompilationUnit, line: number) => datum.variant,
+  method(DatumVariant.FIXNUM, (datum: Datum, unit: CompilationUnit, line: number) => {
+    assert(datum.variant === DatumVariant.FIXNUM);
+    flour.emitConstantInstruction(unit.chunk, flour.fixnum(datum.value), line);
+  }),
+  method((datum: Datum, unit: CompilationUnit) => { throw Error(`Compiling unknown datum, ${datum}`) })
+);
+
+type CompileExpressionGeneric = Multi & {
+  (expr: SyntaxTree, unit: CompilationUnit): void;
+}
+
+const compileExpressionGeneric: CompileExpressionGeneric = multi(
+  (expr: SyntaxTree, unit: CompilationUnit) => expr.variant,
+  method(
+    SyntaxTreeVariant.DATUM,
+    (expr: SyntaxTree, unit: CompilationUnit) => {
+      assert(expr.variant === SyntaxTreeVariant.DATUM);
+      compileDatum(expr.value, unit, expr.line);
+    }
+  ),
+  method(
+    SyntaxTreeVariant.LIST,
+    (expr: SyntaxTree, unit: CompilationUnit) => {
+      assert(expr.variant === SyntaxTreeVariant.LIST);
+      if (expr.value.length === 0) {
+        // NOTE(kosinw): Empty list is special case, should make a nil
+        flour.emitInstruction(unit.chunk, flour.single(FlourOpcode.NIL, expr.line));
+        return;
+      }
+      // compileList(expr.value, unit);
+      // assume is primitive procedure call
+      compileTail(expr.value, unit);
+    }
+  )
+);
+
+/**
+ * Emits bytecode corresponding to code in expression.
+ * 
+ * @param expr an abstract syntax tree
+ * @param unit a compilation unit
+ */
+function compileExpression(expr: SyntaxTree, unit: CompilationUnit): void {
+  return compileExpressionGeneric(expr, unit);
+}
+
+/**
+ * Compiles the tail of an array of syntax trees (i.e. compile all but the first).
+ * 
+ * @param expr a list of abstract syntax trees
+ * @param unit a compilation unit
+ */
+function compileTail(expr: SyntaxTree[], unit: CompilationUnit): void {
+  expr.slice(1).forEach(expr => compileExpression(expr, unit));
+}
+
+/**
+ * Entrypoint for the Ricecakes compiler.
+ * Compiles source code string into Flour bytecode object file.
  * 
  * @param source a source program
  */
-export function compile(source: string): void {
+export function compile(source: string): flour.ObjectFile {
   const scanner = makeTokenizer(source);
   const parser = makeParser(scanner);
-  // let chunks: flour.Chunk[] = [];
+  const object = flour.makeObjectFile();
+  const unit = makeCompilationUnit("<top>", object);
 
-  // while (!match(parser, TokenVariant.EOF)) {
-  //   const chunk = flour.makeChunk();
-  //   chunks.push(expression(parser, chunk));
-  // }
+  while (!match(parser, TokenVariant.EOF)) {
+    const syntaxTree = expression(parser);
+    void compileExpression(syntaxTree, unit);
+  }
 
-  // return flour.serialize(linker(chunks));
+  void unitEpilogue(unit);
+  return object;
 }
