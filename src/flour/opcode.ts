@@ -34,3 +34,10 @@ export enum FlourOpcode {
   RETURN,
   // METHOD
 }
+// FlourOpcode.L
+export enum FlourUnboxedTypeCode {
+  FIXNUM,
+  NIL,
+  BOOLEAN,
+  PTR
+};

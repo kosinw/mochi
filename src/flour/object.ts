@@ -16,11 +16,11 @@
 /// along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ///
 
-import { FlourOpcode } from "./opcode";
+import { FlourOpcode, FlourUnboxedTypeCode } from "./opcode";
 
 export type Ptr = number;
 
-export enum BoxedTypeCode {
+export enum FlourBoxedTypeCode {
   PAIR,
   SYMBOL,
   CLOSURE,
@@ -35,16 +35,9 @@ export enum BoxedTypeCode {
  * in width and can be pointed to by values on the stack.
  */
 export type BoxedValue =
-  | { variant: BoxedTypeCode.PAIR, car: Ptr, cdr: Ptr }
-  | { variant: BoxedTypeCode.SYMBOL, value: string }
-  | { variant: BoxedTypeCode.CLOSURE, code: Ptr, upvalues: Ptr[] }; // NOTE(kosinw): Not sure if this is exactly correct
-
-export enum UnboxedTypeCode {
-  FIXNUM,
-  NIL,
-  BOOLEAN,
-  PTR
-};
+  | { variant: FlourBoxedTypeCode.PAIR, car: Ptr, cdr: Ptr }
+  | { variant: FlourBoxedTypeCode.SYMBOL, value: string }
+  | { variant: FlourBoxedTypeCode.CLOSURE, code: Ptr, upvalues: Ptr[] }; // NOTE(kosinw): Not sure if this is exactly correct
 
 /**
  * Represents an unboxed value in Flour bytecode specification.
@@ -53,10 +46,10 @@ export enum UnboxedTypeCode {
  * Unboxed values are typically 8 bytes in width.
  */
 export type UnboxedValue =
-  | { variant: UnboxedTypeCode.FIXNUM, value: number }
-  | { variant: UnboxedTypeCode.NIL }
-  | { variant: UnboxedTypeCode.BOOLEAN, value: boolean }
-  | { variant: UnboxedTypeCode.PTR, value: Ptr };
+  | { variant: FlourUnboxedTypeCode.FIXNUM, value: number }
+  | { variant: FlourUnboxedTypeCode.NIL }
+  | { variant: FlourUnboxedTypeCode.BOOLEAN, value: boolean }
+  | { variant: FlourUnboxedTypeCode.PTR, value: Ptr };
 export const UNBOXED_BYTE_LENGTH = 8;
 
 export enum UnboxedRepresentation{
@@ -88,6 +81,7 @@ export const INSTRUCTION_FORMAT = [
   [InstructionRepresentation.OP_CODE, 1],
   [InstructionRepresentation.DATA, 4]
 ];
+export const INSTRUCTION_BYTE_LENGTH = 5;
 
 
 /**
