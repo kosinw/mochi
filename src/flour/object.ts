@@ -20,7 +20,7 @@ import { FlourOpcode } from "./opcode";
 
 export type Ptr = number;
 
-export enum BoxedValueVariant {
+export enum BoxedTypeCode {
   PAIR,
   SYMBOL,
   CLOSURE,
@@ -35,11 +35,11 @@ export enum BoxedValueVariant {
  * in width and can be pointed to by values on the stack.
  */
 export type BoxedValue =
-  | { variant: BoxedValueVariant.PAIR, car: Ptr, cdr: Ptr }
-  | { variant: BoxedValueVariant.SYMBOL, value: string }
-  | { variant: BoxedValueVariant.CLOSURE, code: Ptr, upvalues: Ptr[] }; // NOTE(kosinw): Not sure if this is exactly correct
+  | { variant: BoxedTypeCode.PAIR, car: Ptr, cdr: Ptr }
+  | { variant: BoxedTypeCode.SYMBOL, value: string }
+  | { variant: BoxedTypeCode.CLOSURE, code: Ptr, upvalues: Ptr[] }; // NOTE(kosinw): Not sure if this is exactly correct
 
-export enum UnboxedValueVariant {
+export enum UnboxedTypeCode {
   FIXNUM,
   NIL,
   BOOLEAN,
@@ -53,20 +53,42 @@ export enum UnboxedValueVariant {
  * Unboxed values are typically 8 bytes in width.
  */
 export type UnboxedValue =
-  | { variant: UnboxedValueVariant.FIXNUM, value: number }
-  | { variant: UnboxedValueVariant.NIL }
-  | { variant: UnboxedValueVariant.BOOLEAN, value: boolean }
-  | { variant: UnboxedValueVariant.PTR, value: Ptr };
+  | { variant: UnboxedTypeCode.FIXNUM, value: number }
+  | { variant: UnboxedTypeCode.NIL }
+  | { variant: UnboxedTypeCode.BOOLEAN, value: boolean }
+  | { variant: UnboxedTypeCode.PTR, value: Ptr };
+export const UNBOXED_BYTE_LENGTH = 8;
+
+export enum UnboxedRepresentation{
+  TYPE_CODE,
+  DATA
+}
+
+export const UNBOXED_FORMAT = [
+  [UnboxedRepresentation.TYPE_CODE, 1],
+  [UnboxedRepresentation.DATA, 4]
+];
 
 /**
  * Represents a singular instruction in Flour bytecode specification.
  * An instruction consists of a byte-long opcode and an optional
- * argument which is typically a memory reference.
+ * argument which is typically a  4 byte memory reference.
  */
 export type Instruction = {
   opcode: FlourOpcode,
   argument?: number
 };
+
+export enum InstructionRepresentation{
+  OP_CODE,
+  DATA
+}
+
+export const INSTRUCTION_FORMAT = [
+  [InstructionRepresentation.OP_CODE, 1],
+  [InstructionRepresentation.DATA, 4]
+];
+
 
 /**
  * Represents a singular "chunk" in Flour bytecode specification.
@@ -75,7 +97,9 @@ export type Instruction = {
  * Typically one chunk corresponds to one lambda in Scheme source language.
  */
 export type Chunk = {
-  name: string;
+  // name: string;
+  data_start: Number;
+  instructions_start: Number;
   constants: UnboxedValue[];
   data: BoxedValue[];
   instructions: Instruction[];
