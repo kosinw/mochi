@@ -36,7 +36,14 @@ describe('compiler tests', function () {
   });
 
   it('covers compiling a unary primitive call', function () {
-    const sourceCode = '(* 0001 42 993 44444 885 26 1237)';
+    const sourceCode = '(* 0001 42 993 44444\n885\n26 1237)';
+    const object = ricecakes.compile(sourceCode);
+
+    // console.log(flour.disassemble(object));
+  });
+
+  it('covers consing up a one element list', function () {
+    const sourceCode = '(cons 1 ())';
     const object = ricecakes.compile(sourceCode);
 
     console.log(flour.disassemble(object));

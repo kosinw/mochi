@@ -113,16 +113,18 @@ function disassembleConstantInstruction(
  * @param instruction an instruction
  * @param chunk the chunk the instruction is from
  * @param offset the offset from the first instruction
+ * @param previousLine the line number of the previous instruction
  * @returns a disassembly string and new offset
  */
 function disassembleInstruction(
   instruction: Instruction,
   chunk: Chunk,
-  offset: number
+  offset: number,
+  previousLine: number | undefined
 ): [number, string] {
   let line = `${offset.toString().padStart(4, '0')} `;
 
-  if (instruction.line) {
+  if (instruction.line && (instruction.line !== previousLine)) {
     line += `${instruction.line.toString().padStart(4, ' ')} `;
   } else {
     line += `   | `;
@@ -139,7 +141,12 @@ function disassembleInstruction(
     default:
       break;
   }
-  return [instruction.argument !== undefined ? 1 + WORD_SIZE : 1, line];
+  return [
+    instruction.argument !== undefined ?
+      1 + WORD_SIZE + offset :
+      1 + offset,
+    line
+  ];
 }
 
 /**
@@ -171,10 +178,12 @@ export type Chunk = {
 function disassembleChunk(chunk: Chunk, object: ObjectFile): string {
   const buffer = [`=== ${chunk.name} ===`];
   let offset = 0;
+  let previousLine: number | undefined = -1;
 
   for (let instruction of chunk.instructions) {
-    let [n, disas] = disassembleInstruction(instruction, chunk, offset);
+    let [n, disas] = disassembleInstruction(instruction, chunk, offset, previousLine);
     buffer.push(disas);
+    previousLine = instruction.line;
     offset = n;
   }
 
