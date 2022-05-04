@@ -74,6 +74,19 @@ export function fixnum(n: number): UnboxedValue {
   }
 }
 
+/**
+ * Creates a new Flour boolean.
+ * 
+ * @param b a boolean
+ * @returns a new Flour boolean
+ */
+export function boolean(b: boolean): UnboxedValue {
+  return {
+    variant: UnboxedValueVariant.BOOLEAN,
+    value: b
+  }
+}
+
 function disassembleUnboxed(unboxed: UnboxedValue): string {
   switch (unboxed.variant) {
     case UnboxedValueVariant.BOOLEAN:

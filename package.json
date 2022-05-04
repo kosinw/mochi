@@ -2,7 +2,7 @@
   "name": "mochi",
   "private": true,
   "version": "0.0.1",
-  "bin": "dist/repl.js",
+  "bin": "dist/src/repl.js",
   "engines": {
     "node": "^16.13.2"
   },
