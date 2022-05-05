@@ -13,10 +13,8 @@
     "test": "node tests",
     "start": "npx serve ."
   },
-  "devDependencies": {
-    "assemblyscript": "^0.20.6"
-  },
   "dependencies": {
+    "assemblyscript": "^0.20.6",
     "benchmarkify": "^3.0.0"
   }
 }

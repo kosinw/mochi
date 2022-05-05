@@ -1,45 +1,58 @@
 const MAX_PROGRAM_MEMORY = 1024*1024*16
 import {FlourOpcode, FlourUnboxedTypeCode} from "../../flour/opcode"
 const UNBOXED_BYTE_LENGTH = 8;
+const UNBOXED_TYPE_LENGTH = 1;
+const UNBOXED_DATA_LENGTH = 4;
+
+
 const INSTRUCTION_BYTE_LENGTH = 5;
+const INSTRUCTION_OPCODE_LENGTH = 1
+const INSTRUCTION_DATA_LENGTH = 4;
 
-export function run(programBuffer: Uint8Array):u32{
-  let vm: DangoVM = new DangoVM(programBuffer)
+let vm: DangoVM;
 
 
-  return (new UnboxedValue(vm.evaluate())).getData();
+export function initVM(programBuffer: Uint8Array):void{
+  vm = new DangoVM(programBuffer)
 }
 
-function parseUint32(arr:Uint8Array, index: i32):u32{
+export function run():u32{
+  vm.evaluate();
+  // const res = parseBytesAsUint(vm.evaluate(),1,4)
+  vm.reset();
+  return 1;
+}
+
+function parseBytesAsUint(arr:Uint8Array, offset: i32, numBytes: i32):u32{
   let sum:u32=0;
-  for(let i=0;i<4;i++){
-    sum+=(<u32>arr[index+3-i])<<(8*i)
+  for(let i=0;i<numBytes;i++){
+    sum+=(<u32>arr[offset+numBytes-1-i])<<(8*i)
   }
+  
+  // const dView = new DataView(arr.buffer)
+  
   return sum
-  // return (<u32>arr[index]<<24)+(<u32>arr[index+1] << 16)+(<u32>arr[index+2] << 8)+(<u32>arr[index+3])
 }
-function bytify(num: u32):Uint8Array{
-  // console.log("byte")
-  // console.log(num.toString())
-  const res = new Uint8Array(8);
-  res[0] = FlourUnboxedTypeCode.FIXNUM
+
+function bytify(num: u32, buffer: Uint8Array, offset: u32):void{
+
+  buffer[offset] = FlourUnboxedTypeCode.FIXNUM
+  // const dView = new DataView(buffer.buffer)
+  // dView.setUint32(offset+1,num)
   for(let i=0; i<4;i++){
-    res[4-i]=num & 255
+    buffer[offset+4-i]=num & 255
     num>>=8;
   }
 
-  return res
 }
 
-function bytifyBool(val: bool):Uint8Array{
-  const res = new Uint8Array(8);
-  res[0] = FlourUnboxedTypeCode.BOOLEAN
-  res[4]= val?1:0
-  return res
+function bytifyBool(val: bool, buffer: Uint8Array, offset: u32):void{
+  buffer[offset] = FlourUnboxedTypeCode.BOOLEAN
+  buffer[offset+1]= 0
+  buffer[offset+2]= 0
+  buffer[offset+3]= 0
+  buffer[offset+4]= val?1:0
 }
-// let cnt = 0;
-
-
 class DangoVM {
   stack: Uint8Array;
   heap: Uint8Array;
@@ -49,33 +62,36 @@ class DangoVM {
   // unboxed values are stored in 4 bytes
   globals: Map<u32, u64>;
 
-
   constructor(programBuffer: Uint8Array){
     this.stack = new Uint8Array(MAX_PROGRAM_MEMORY);
     this.stackTop = 0;
     this.frameCount = 0;
     this.heap = new Uint8Array(MAX_PROGRAM_MEMORY);
     this.globals = new Map<u32, u64>();
-    const num_chunks: u32 = parseUint32(programBuffer, 0)
-    // console.log(num_chunks.toString())
+    const num_chunks: u32 = parseBytesAsUint(programBuffer, 0, 4)
     this.chunks = new Array<Chunk>(num_chunks);
 
     for(let i:u32=0; i<num_chunks; i++){
-      let start_ptr = parseUint32(programBuffer,4*i+4)
-      let end_ptr = parseUint32(programBuffer, 4*i+8)  
+      let start_ptr = parseBytesAsUint(programBuffer,4*i+4,4)
+      let end_ptr = parseBytesAsUint(programBuffer, 4*i+8,4)  
 
       if(i==num_chunks-1){
         end_ptr = programBuffer.length
       }
 
-      this.chunks[i] = new Chunk(programBuffer.slice(start_ptr, end_ptr))
+      this.chunks[i] = new Chunk(start_ptr,end_ptr-start_ptr, programBuffer)
     }
 
-    this.push(bytify(12))
+    this.pushUint(12)
   }
 
-  evaluate(): Uint8Array{
+  evaluate(): void{
     return this.runChunk(this.chunks[this.chunks.length-1])
+  }
+
+  reset():void{
+    this.stackTop = 0;
+    this.pushUint(12);
   }
 
   private push(pushBuffer: Uint8Array):void{
@@ -86,186 +102,218 @@ class DangoVM {
     this.stackTop += UNBOXED_BYTE_LENGTH
   }
 
-  
-
-  private pop():Uint8Array{
-    this.stackTop -= UNBOXED_BYTE_LENGTH;
-    return this.peek(-1);
+  private pushConstant(c: Chunk, ind: u32):void{
+    this.stack.set(c.buffer.subarray(c.constants_start+UNBOXED_BYTE_LENGTH*ind, c.constants_start+UNBOXED_BYTE_LENGTH*(ind+1)), this.stackTop)
+    this.stackTop += UNBOXED_BYTE_LENGTH
   }
 
-  private stackLength():u32{
-    return this.stackTop / UNBOXED_BYTE_LENGTH
+  private pushLocal(ind: u32):void{
+    // console.log("stack top")
+    // console.log(this.stackTop.toString())
+    // console.log("ind")
+    // console.log(ind.toString())
+    this.stack.copyWithin(this.stackTop, this.stackTop-(ind+1)*UNBOXED_BYTE_LENGTH,this.stackTop-(ind)*UNBOXED_BYTE_LENGTH)
+    // this.stack.set(c.buffer.subarray(c.constants_start+UNBOXED_BYTE_LENGTH*ind, c.constants_start+UNBOXED_BYTE_LENGTH*(ind+1)), this.stackTop)
+    this.stackTop += UNBOXED_BYTE_LENGTH
+  }
+
+  private pushUint(i: u32):void{
+    bytify(i, this.stack, this.stackTop)
+    this.stackTop+=UNBOXED_BYTE_LENGTH
+  }
+
+  private pushBool(i: bool):void{
+    bytifyBool(i, this.stack, this.stackTop)
+    this.stackTop+=UNBOXED_BYTE_LENGTH
+  }
+
+  private pop():void{
+    this.stackTop -= UNBOXED_BYTE_LENGTH;
+  }
+
+  private popTwo():void{
+    this.stackTop -= 2*UNBOXED_BYTE_LENGTH;
   }
 
   private peek(i: u32): Uint8Array{
+    if(this.stackTop-(i+1)*UNBOXED_BYTE_LENGTH<0){
+      throw "Stack access error"
+    }
     return this.stack.slice(this.stackTop-(i+1)*UNBOXED_BYTE_LENGTH,this.stackTop-i*UNBOXED_BYTE_LENGTH)
   }
 
-  private runChunk(c: Chunk): Uint8Array{
-    for(let i=0;i<c.instructions.length;i++){
-      const instruction = c.instructions[i];
-      let a:UnboxedValue;
-      let b:UnboxedValue;
+  private printStack():void{
+    console.log("stak")
+    for(let i:u32=0;i<this.stackTop;i+=UNBOXED_BYTE_LENGTH){
+      console.log(parseBytesAsUint(this.stack,i+1,4).toString())
+    }
+  }
 
-      switch(instruction.getOpCode()) {
+  private peekData(i: u32): u32{
+    if(this.stackTop-(i+1)*UNBOXED_BYTE_LENGTH<0){
+      throw "Stack access error"
+    }
+    return parseBytesAsUint(this.stack, this.stackTop-(i+1)*UNBOXED_BYTE_LENGTH+1,4)
+  }
+
+  private runChunk(c: Chunk): void{
+
+    for(let i:u32=c.instructions_start;i<=c.chunkLen+c.instructions_start;i+=INSTRUCTION_BYTE_LENGTH){
+      const opCode = c.buffer[i];
+      // this.printStack()
+
+      // console.log("code")
+      // console.log(opCode.toString())
+      // console.log("data")
+      // console.log(c.getInstructionData(i).toString())
+      switch(opCode) {
         case FlourOpcode.ADD:
-          b = new UnboxedValue(this.pop())
-          a = new UnboxedValue(this.pop())
-          this.push(bytify(a.getData()+b.getData()))
+          this.popTwo();
+          this.pushUint(this.peekData(-1)+this.peekData(-2))
           break;
         case FlourOpcode.SUBTRACT:
           // console.log("sub")
-          b = new UnboxedValue(this.pop())
-          a = new UnboxedValue(this.pop())
-          // console.log(b.getData().toString())
-          // console.log((a.getData()-b.getData()).toString())
-          this.push(bytify(a.getData()-b.getData()))
+          this.popTwo();
+          // console.log((this.peekData(-2)-this.peekData(-1)).toString())
+          this.pushUint(this.peekData(-1)-this.peekData(-2))
           break;
         case FlourOpcode.MULTIPLY:
           // console.log("mult")
-          b = new UnboxedValue(this.pop())
-          a = new UnboxedValue(this.pop())
-          // console.log(a.getData().toString())
-          // console.log("*")
-          // console.log(b.getData().toString())
-          // console.log((a.getData()*b.getData()).toString())
-          this.push(bytify(a.getData()*b.getData()))
+          this.popTwo();
+          this.pushUint(this.peekData(-1)*this.peekData(-2))
           break;
         case FlourOpcode.DIVIDE:
-          b = new UnboxedValue(this.pop())
-          a = new UnboxedValue(this.pop())
-          this.push(bytify(a.getData()/b.getData()))
+          // console.log("div")
+          this.popTwo();
+          this.pushUint(this.peekData(-1)/this.peekData(-2))
           break;
         case FlourOpcode.EQUAL:
-          b = new UnboxedValue(this.pop())
-          a = new UnboxedValue(this.pop())
-          this.push(bytifyBool(a.getData()==b.getData()))
+          // console.log("eq")
+          this.popTwo();
+          this.pushBool(this.peekData(-1)==this.peekData(-2))
           break;
         case FlourOpcode.LESS:
           // console.log("less")
-          b = new UnboxedValue(this.pop())
-          a = new UnboxedValue(this.pop())
-          // console.log(a.getData().toString())
+          this.popTwo();
+          // console.log(this.peekData(-2).toString())
           // console.log("<")
-          // console.log(b.getData().toString())
-
-          this.push(bytifyBool(a.getData()<b.getData()))
+          // console.log(this.peekData(-1).toString())
+          this.pushBool(this.peekData(-1)<this.peekData(-2))
           break;
         case FlourOpcode.GREATER:
-          b = new UnboxedValue(this.pop())
-          a = new UnboxedValue(this.pop())
-          this.push(bytifyBool(a.getData()>b.getData()))
+          console.log("gre")
+          this.popTwo();
+          this.pushBool(this.peekData(-1)>this.peekData(-2))
           break;
         case FlourOpcode.JUMP:
-          i+=instruction.getData()
+          // console.log("j")
+          i+=c.getInstructionData(i)*INSTRUCTION_BYTE_LENGTH
           break;
         case FlourOpcode.JUMP_IF_FALSE:
           // console.log("jfalse")
-          a = new UnboxedValue(this.peek(0))
-          // console.log(a.getData().toString())
-          if(a.getData()==0)
-            i+=instruction.getData()
+          if(this.peekData(0)==0){
+            // console.log("jumped")
+            i+=c.getInstructionData(i)*INSTRUCTION_BYTE_LENGTH
+          }
           break;
         case FlourOpcode.GET_LOCAL:
-          // console.log("local")
-          this.push(this.peek(instruction.getData()))
+          // console.log("locsl")
+          this.pushLocal(c.getInstructionData(i))
           break;
         case FlourOpcode.CONSTANT:
-          // console.log("constant")
-          // console.log(instruction.getData().toString())
-          // console.log("out of")
-          // console.log(c.constants.length.toString())
-          this.push(c.constants[instruction.getData()].unboxedBytes )
+          // console.log("const")
+          this.pushConstant(c, c.getInstructionData(i))
           break;
         case FlourOpcode.POP:
           // console.log("pop")
           this.pop();
           break;
         case FlourOpcode.RETURN:
-          // console.log("return")
-          const res: Uint8Array = this.pop();
-          // console.log((new UnboxedValue(res)).getData().toString())
-          // for(let i:u32=0;i<this.stackTop/UNBOXED_BYTE_LENGTH;i++){
-          //   console.log((new UnboxedValue(this.peek(i))).getData().toString())
-          // }
-          return res;
+          // this.pop();
+          // console.log("RETURN")
+          return;
         case FlourOpcode.CALL:
-          // console.log("call")
-          this.push(this.runChunk(this.chunks[instruction.getData()]))
+          // console.log("Call")
+          this.runChunk(this.chunks[parseBytesAsUint(c.buffer, i+1, 4)])
+          // console.log("resolved")
+          // console.log(i.toString())
+          // console.log(c.chunkLen.toString())
+          break;
       }
     }
-
-    return bytify(11111);
+    // console.log("last op")
+    // console.log(lastop.toString())
+    // console.log("reached end")
+    throw "error"
+    // return bytify(1);
   }
  
 }
 
 class Chunk {
-  constants: UnboxedValue[];
-  instructions: Instruction[];
+  offset: u32;
+  constants_start: u32;
 
-  constructor(chunkBuffer: Uint8Array){
-    const len:u32 = chunkBuffer.length;
-    // console.log(len.toString())
+  instructions_start: u32;
+  num_constants: u32;
+  chunkLen: u32;
+  buffer: Uint8Array;
 
-    const instructions_start: u32 = parseUint32(chunkBuffer, 0)
-    const num_constants: u32 = (instructions_start-4)/UNBOXED_BYTE_LENGTH
-    this.constants = new Array<UnboxedValue>(num_constants)
-    let ind:u32 = 0;
-    // console.log(num_constants.toString())
-    for(let i:u32=4; i<instructions_start; i+=UNBOXED_BYTE_LENGTH){
-      this.constants[ind] = new UnboxedValue(chunkBuffer.slice(i,i+UNBOXED_BYTE_LENGTH));
-      // console.log("Constant")
-      // console.log(FlourUnboxedTypeCode.FIXNUM)
-      // console.log(this.constants[ind].getData().toString())
-      ind++;
-    }
-    ind = 0;
-    const instLen:u32 = (len-instructions_start)/INSTRUCTION_BYTE_LENGTH
-    this.instructions = new Array<Instruction>(instLen)
-    // console.log("instruction len")
-    // console.log(instLen.toString())
-    for(let i:u32=instructions_start; i<len; i+=INSTRUCTION_BYTE_LENGTH){
-      this.instructions[ind] = new Instruction(chunkBuffer.slice(i,i+INSTRUCTION_BYTE_LENGTH));
-      // console.log("instruction")
-      // console.log(this.instructions[ind].getOpCode().toString())
-      // console.log(this.instructions[ind].getData().toString())
-      ind++;
-    }
+  constructor(offset:u32, chunkLen: u32, buffer: Uint8Array){
+  
+    this.buffer = buffer
+    this.offset = offset
+    this.chunkLen = chunkLen
+    this.instructions_start = this.offset+parseBytesAsUint(buffer, offset, 4)
+    this.constants_start = this.offset+4;
+    this.num_constants = (this.instructions_start-this.constants_start)/UNBOXED_BYTE_LENGTH
+  
+  }
+
+  // getConstant(ind:u32):Uint8Array{
+  //   // console.log(parseBytesAsUint(this.buffer, this.offset+1,4).toString())
+  //   return this.buffer.slice(this.constants_start+UNBOXED_BYTE_LENGTH*ind, this.constants_start+UNBOXED_BYTE_LENGTH*(ind+1))
+  // }
+
+  getInstructionOpCode(ind:u32):u8{
+    return this.buffer[this.instructions_start+ind*INSTRUCTION_BYTE_LENGTH]
+  }
+
+  getInstructionData(ind:u32):u32{
+    return parseBytesAsUint(this.buffer, ind+1, 4)
   }
 
 }
 
-class UnboxedValue{
-  unboxedBytes: Uint8Array;
-  constructor (unboxedBuffer: Uint8Array){
-    this.unboxedBytes = unboxedBuffer;
-  }
+// class UnboxedValue{
+//   offset: u32;
+//   constructor (offset:u32){
+//     this.offset = offset;
+//   }
+// }
 
-  getType():u8{
-    return this.unboxedBytes[0]
-  }
+// function getType(val: UnboxedValue, buffer:Uint8Array):u8{
+//   return buffer[val.offset]
+// }
 
-  getData():u32{
-    return parseUint32(this.unboxedBytes, 1)
-  }
+// function getUnboxedData(val: UnboxedValue, buffer:Uint8Array):u32{
+//   return parseUint32(buffer, val.offset+1)
+// }
 
-}
+// class Instruction{
+//   offset: u32;
+//   constructor (offset: u32){
+//     this.offset = offset;
+//   }
+// }
 
-class Instruction{
-  instruction: Uint8Array;
-  constructor (instructionBuffer: Uint8Array){
-    this.instruction = instructionBuffer;
-  }
+// function getOpCode(ins: Instruction, chunkBuffer: Uint8Array):u8{
+//   return chunkBuffer[ins.offset];
+// }
 
-  getOpCode():u8{
-    return this.instruction[0]
-  }
-
-  getData():u32{
-    return parseUint32(this.instruction, 1)
-  }
-}
+// function getInstructionData(ins: Instruction, chunkBuffer: Uint8Array):u32{
+//   return parseUint32(chunkBuffer, ins.offset+1)
+// }
 
 
 

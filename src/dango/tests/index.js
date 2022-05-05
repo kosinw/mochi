@@ -1,5 +1,3 @@
-// import assert from "assert";
-// import { run, Int32Array_ID } from "../build/debug.js";
 import * as debug from "../build/debug.js";
 let code = `00 00 00 01
 00 00 00 08
@@ -21,8 +19,8 @@ let code = `00 00 00 01
 10 00 00 00 00//mult
 1B 00 00 00 00//return`
 
-code = code.replaceAll(/\/\/.*/ig, " ")
-code = code.replaceAll("\n", " ").replaceAll("  ", " ")
+code = code.replace(/\/\/.*/ig, " ")
+code = code.replace(/\n/g, " ").replace(/  /g, " ")
 
 console.log(code)
 const bytes = code.split(" ")
@@ -30,8 +28,9 @@ const buffer = new Uint8Array(bytes.length)
 for(let i=0;i<bytes.length;i++){
     buffer[i]=parseInt(bytes[i], 16);
 }
+debug.initVM(buffer);
 
-console.log(debug.run(buffer));
+console.log(debug.run());
 console.log("ok");
 
 import Benchmarkify from "benchmarkify";
@@ -46,7 +45,7 @@ const bench1 = benchmark.createSuite("Increment integer");
 
 // Add first func
 bench1.add("Factorial with wasm", () => {
-    debug.run(buffer)
+    debug.run()
 });
 
 function Factorial(n){
