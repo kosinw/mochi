@@ -87,6 +87,18 @@ export function boolean(b: boolean): UnboxedValue {
   }
 }
 
+/**
+ * Creates a new Flour nil.
+ * 
+ * @param b a boolean
+ * @returns a new Flour boolean
+ */
+export function nil(): UnboxedValue {
+  return {
+    variant: UnboxedValueVariant.NIL
+  }
+}
+
 function disassembleUnboxed(unboxed: UnboxedValue): string {
   switch (unboxed.variant) {
     case UnboxedValueVariant.BOOLEAN:
@@ -117,7 +129,21 @@ function disassembleConstantInstruction(
   chunk: Chunk,
   offset: number
 ): string {
-  return ` ${offset.toString().padStart(4, '0')} '${disassembleUnboxed(chunk.constants[offset])}'`;
+  return ` ${offset.toString(16).padStart(8, '0')} '${disassembleUnboxed(chunk.constants[offset])}'`;
+}
+
+function disassembleComplexInstruction(
+  chunk: Chunk,
+  offset: number
+): string {
+  return ` ${offset.toString(16).padStart(8, '0')}`;
+}
+
+function disassembleSymbolInstruction(
+  object: ObjectFile,
+  offset: number
+): string {
+  return ` ${offset.toString(16).padStart(8, '0')} '${object._symbolReverseMapping.get(offset)}'`;
 }
 
 /**
@@ -133,12 +159,13 @@ function disassembleInstruction(
   instruction: Instruction,
   chunk: Chunk,
   offset: number,
-  previousLine: number | undefined
+  previousLine: number | undefined,
+  object: ObjectFile
 ): [number, string] {
-  let line = `${offset.toString().padStart(4, '0')} `;
+  let line = `${offset.toString(16).padStart(8, '0')} `;
 
   if (instruction.line && (instruction.line !== previousLine)) {
-    line += `${instruction.line.toString().padStart(4, ' ')} `;
+    line += `${instruction.line.toString(16).padStart(4, ' ')} `;
   } else {
     line += `   | `;
   }
@@ -147,10 +174,20 @@ function disassembleInstruction(
 
   switch (instruction.opcode) {
     case FlourOpcode.CONSTANT:
-      const { argument } = instruction;
-      assert(argument !== undefined);
-      line += disassembleConstantInstruction(chunk, argument);
-      break;
+      {
+        const { argument } = instruction;
+        assert(argument !== undefined);
+        line += disassembleConstantInstruction(chunk, argument);
+        break;
+      }
+    case FlourOpcode.DEFINE_VARIABLE:
+    case FlourOpcode.GET_VARIABLE:
+      {
+        const { argument } = instruction;
+        assert(argument !== undefined);
+        line += disassembleSymbolInstruction(object, argument);
+        break;
+      }
     default:
       break;
   }
@@ -176,6 +213,20 @@ export function single(opcode: FlourOpcode, line?: number): Instruction {
 }
 
 /**
+ * Creates a new bytecode instruction which has an opcode and argument.
+ * 
+ * @param opcode an opcode
+ * @returns an instruction which only takes an opcode
+ */
+export function complex(opcode: FlourOpcode, argument: number, line?: number): Instruction {
+  return {
+    opcode,
+    argument,
+    line
+  }
+}
+
+/**
  * Represents a singular "chunk" in Flour bytecode specification.
  * A chunk consists of a name, a list of all constants (unboxed values),
  * a list of all data objects (boxed values), and a list of all instructions.
@@ -186,6 +237,7 @@ export type Chunk = {
   constants: UnboxedValue[];
   data: BoxedValue[];
   instructions: Instruction[];
+  object: ObjectFile;
 };
 
 function disassembleChunk(chunk: Chunk, object: ObjectFile): string {
@@ -194,7 +246,7 @@ function disassembleChunk(chunk: Chunk, object: ObjectFile): string {
   let previousLine: number | undefined = -1;
 
   for (let instruction of chunk.instructions) {
-    let [n, disas] = disassembleInstruction(instruction, chunk, offset, previousLine);
+    let [n, disas] = disassembleInstruction(instruction, chunk, offset, previousLine, object);
     buffer.push(disas);
     previousLine = instruction.line;
     offset = n;
@@ -223,8 +275,16 @@ export function emitInstruction(chunk: Chunk, instruction: Instruction): void {
  * @returns pointer to constant value
  */
 function makeConstant(chunk: Chunk, value: UnboxedValue): number {
-  const n = chunk.constants.push(value) - 1;
-  return n;
+  if (value.variant === UnboxedValueVariant.FIXNUM) {
+    const n = chunk.constants.push(value) - 1;
+    return n;
+  } else if (value.variant === UnboxedValueVariant.NIL) {
+    return 0;
+  } else if (value.value) {
+    return 1;
+  }
+
+  return 2;
 }
 
 /**
@@ -234,22 +294,23 @@ function makeConstant(chunk: Chunk, value: UnboxedValue): number {
  * @param value a constant value
  */
 export function emitConstantInstruction(chunk: Chunk, value: UnboxedValue, line?: number): void {
-  chunk.instructions.push({
-    opcode: FlourOpcode.CONSTANT,
-    argument: makeConstant(chunk, value),
-    line
-  });
+  emitInstruction(chunk, complex(FlourOpcode.CONSTANT, makeConstant(chunk, value), line));
 }
 
 /**
  * @returns a new chunk
  */
-export function makeChunk(name: string): Chunk {
+export function makeChunk(name: string, object: ObjectFile): Chunk {
   return {
     name,
-    constants: [],
+    constants: [
+      nil(),
+      boolean(true),
+      boolean(false)
+    ],
     data: [],
-    instructions: []
+    instructions: [],
+    object: object
   };
 }
 
@@ -261,6 +322,8 @@ export function makeChunk(name: string): Chunk {
  */
 export type ObjectFile = {
   chunks: Map<string, Chunk>;
+  symbols: Map<string, number>;
+  _symbolReverseMapping: Map<number, string>; // TODO(kosinw): Get rid of this instance
 }
 
 /**
@@ -268,8 +331,29 @@ export type ObjectFile = {
  */
 export function makeObjectFile(): ObjectFile {
   return {
-    chunks: new Map()
+    chunks: new Map(),
+    symbols: new Map(),
+    _symbolReverseMapping: new Map()
   };
+}
+
+/**
+ * Resolves the name of a symbol to its index in the object file.
+ * 
+ * @param object an object file
+ * @param symbol a symbol
+ * @returns the index for a given symbol
+ */
+export function resolveSymbol(object: ObjectFile, symbol: string): number {
+  if (object.symbols.has(symbol)) {
+    const ix = object.symbols.get(symbol);
+    assert(ix !== undefined);
+    object._symbolReverseMapping.set(ix, symbol);
+    return ix;
+  }
+
+  object.symbols.set(symbol, object.symbols.size);
+  return object.symbols.size - 1;
 }
 
 /**
