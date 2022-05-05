@@ -824,16 +824,19 @@ function dispatchConditional(expr: SyntaxTree, unit: CompilationUnit): void {
   const alternative = expr.value[3];
 
   if (alternative !== undefined) {
-    flour.patchForwardJump(unit.chunk, jump);
+    const prevJump = jump;
 
     jump = flour.emitInstruction(
       unit.chunk,
       flour.complex(FlourOpcode.JUMP, 0xffffffff, consequence.line)
     );
 
+    flour.patchForwardJump(unit.chunk, prevJump);
+
     void compileExpression(alternative, unit);
   }
 
+  // TODO(kosinw): This jump definitely does not work
   flour.patchForwardJump(unit.chunk, jump);
 }
 

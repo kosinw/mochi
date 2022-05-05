@@ -143,7 +143,7 @@ function disassembleJumpInstruction(
   offset: number,
   to: number
 ): string {
-   const actualAddress = offset + to + instructionLength(
+  const actualAddress = offset + to + instructionLength(
     complex(FlourOpcode.JUMP, 0xfffffff)
   );
 
@@ -319,7 +319,8 @@ export function patchForwardJump(chunk: Chunk, offset: number): void {
   const displacement = instructionBlockLength(
     chunk
       .instructions
-      .slice(offset));
+      .slice(offset + 1)
+  );
 
   chunk.instructions[offset].argument = displacement;
 }
@@ -327,7 +328,7 @@ export function patchForwardJump(chunk: Chunk, offset: number): void {
 /**
  * Gets length of chunk in bytes.
  * 
- * @param chunk a chunk
+ * @param instructions a list of instructions
  */
 function instructionBlockLength(instructions: Instruction[]): number {
   return instructions
@@ -432,7 +433,7 @@ export function makeObjectFile(): ObjectFile {
  * @param prefix a prefix for new chunk name
  */
 export function allocateChunk(object: ObjectFile, prefix: string = 'lambda'): [Chunk, number] {
-  const name = `(unnamed ${prefix}/${object.chunks.size.toString(16).padStart(4, '0')})`;
+  const name = `(unnamed (${prefix} ${object.chunks.size}))`;
   const chunk = makeChunk(name, object);
   assert(!object.chunks.has(name));
   object.chunks.set(name, chunk);
