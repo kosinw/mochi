@@ -4,7 +4,7 @@
 export enum FlourOpcode {
   /// Core instructions.
   CONSTANT = 0,
-  DEFINE_VARIABLE,
+  DECLARE_VARIABLE,
   GET_VARIABLE,
   SET_VARIABLE,
 

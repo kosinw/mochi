@@ -3,49 +3,75 @@
 import * as ricecakes from '@module/compiler';
 import * as flour from '@module/flour';
 import figlet from 'figlet';
-import * as readline from 'readline';
+import readline from 'node:readline';
 import chalk from 'chalk';
 import assert from 'assert';
 import util from 'util';
 
-function countParens(s: string): Map<string, number> {
-  const map = new Map([
-    ["(", 0],
-    ["{", 0],
-    ["[", 0],
-    [")", 0],
-    ["}", 0],
-    ["]", 0],
-  ]);
+function count(s: string, c: string): number {
+  assert(c.length === 1);
 
-  for (const char of s) {
-    if (map.has(char)) {
-      const v = map.get(char) ?? assert.fail();
-      map.set(char, v + 1);
-    }
-  }
-
-  return map;
+  return s
+    .split("")
+    .filter(ch => ch === c)
+    .length;
 }
 
-function questionAsync(repl: readline.Interface, prompt: string, buffer: string = ''): Promise<string> {
+/**
+ * Asks use for multiple-line input.
+ * 
+ * @param prompt a prompt
+ * @returns (a promise for) user response
+ */
+function question(
+  prompt: string
+): Promise<string> {
   return new Promise((resolve, reject) => {
-    repl.question(prompt, (answer) => {
-      const fullAnswer = buffer + answer;
-      const counts = countParens(fullAnswer);
+    const PAIRS: [string, string][] = [
+      ['(', ')'],
+      ['{', '}'],
+      ['[', ']']
+    ];
 
-      if (
-        counts.get("(") === counts.get(")") &&
-        counts.get("{") === counts.get("}") &&
-        counts.get("[") === counts.get("]")
-      ) {
-        resolve(fullAnswer);
-        return;
+    const repl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      tabSize: 2,
+      prompt
+    });
+
+    const buffer: string[] = [];
+
+    repl.addListener('line', (input) => {
+      buffer.push(input);
+
+      const program = buffer.join("\n");
+
+      const matched = PAIRS.
+        every(pair =>
+          count(
+            program,
+            pair[0]
+          ) === count(
+            program,
+            pair[1]
+          ));
+
+      if (matched) {
+        repl.close();
       }
 
-      questionAsync(repl, "", fullAnswer + "\n")
-        .then(response => resolve(response));
-    })
+      repl.setPrompt("...");
+    });
+
+    repl.addListener('SIGINT', () => { process.exit(0); });
+
+    repl.addListener('close', () => {
+      resolve(buffer.join('\n'));
+      return;
+    });
+
+    repl.prompt(true);
   });
 }
 
@@ -68,17 +94,16 @@ async function main(): Promise<void> {
 
   let object = flour.makeObjectFile();
 
-  const repl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-  });
-
   while (true) {
-    const response = await questionAsync(repl, chalk.green('λ > '));
+    const response = await question(chalk.green('λ > '));
 
     if (response === ":object") {
       console.log(chalk.yellow(util.inspect(object, false, null)));
       continue;
+    } else if (response === ":quit") {
+      break;
+    } else if (response === ":reset") {
+      object = flour.makeObjectFile();
     }
 
     try {

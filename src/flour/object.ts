@@ -139,6 +139,17 @@ function disassembleComplexInstruction(
   return ` ${offset.toString(16).padStart(8, '0')}`;
 }
 
+function disassembleJumpInstruction(
+  offset: number,
+  to: number
+): string {
+   const actualAddress = offset + to + instructionLength(
+    complex(FlourOpcode.JUMP, 0xfffffff)
+  );
+
+  return ` ${to.toString(16).padStart(8, '0')} <offset ${actualAddress.toString(16).padStart(8, '0')}>`;
+}
+
 function disassembleSymbolInstruction(
   object: ObjectFile,
   offset: number
@@ -180,7 +191,7 @@ function disassembleInstruction(
         line += disassembleConstantInstruction(chunk, argument);
         break;
       }
-    case FlourOpcode.DEFINE_VARIABLE:
+    case FlourOpcode.DECLARE_VARIABLE:
     case FlourOpcode.GET_VARIABLE:
       {
         const { argument } = instruction;
@@ -190,12 +201,18 @@ function disassembleInstruction(
       }
     case FlourOpcode.CLOSURE:
     case FlourOpcode.CALL:
+      {
+        const { argument } = instruction;
+        assert(argument !== undefined);
+        line += disassembleComplexInstruction(chunk, argument);
+        break;
+      }
     case FlourOpcode.JUMP:
     case FlourOpcode.JUMP_IF_FALSE:
       {
         const { argument } = instruction;
         assert(argument !== undefined);
-        line += disassembleComplexInstruction(chunk, argument);
+        line += disassembleJumpInstruction(offset, argument);
         break;
       }
     default:
@@ -276,18 +293,55 @@ export function emitInstruction(chunk: Chunk, instruction: Instruction): number 
 }
 
 /**
+ * Emits a tail call.
+ * 
+ * @param chunk a chunk
+ * @returns index of instruction
+ */
+export function tailCall(chunk: Chunk): number {
+  chunk.instructions[chunk.instructions.length - 1] = complex(
+    FlourOpcode.JUMP,
+    -(
+      instructionBlockLength(chunk.instructions.slice(0, -1))
+      + instructionLength(complex(FlourOpcode.JUMP, 0xffffffff))
+    )
+  );
+  return chunk.instructions.length - 1;
+}
+
+/**
  * Backpatches the jump instruction at offset to the current relative offset.
  * 
  * @param chunk a chunk
  * @param offset the offset of the jump to patch
  */
-export function patchJump(chunk: Chunk, offset: number): void {
-  const displacement = chunk
-    .instructions
-    .slice(offset)
-    .reduce((p, n) => p + instructionLength(n), 0);
+export function patchForwardJump(chunk: Chunk, offset: number): void {
+  const displacement = instructionBlockLength(
+    chunk
+      .instructions
+      .slice(offset));
 
   chunk.instructions[offset].argument = displacement;
+}
+
+/**
+ * Gets length of chunk in bytes.
+ * 
+ * @param chunk a chunk
+ */
+function instructionBlockLength(instructions: Instruction[]): number {
+  return instructions
+    .reduce((p, n) => p + instructionLength(n), 0);
+}
+
+/**
+ * @param chunk a chunk
+ * @returns true iff chunk contains a tail call
+ */
+export function hasTailCall(chunk: Chunk): boolean {
+  const lastInstruction = chunk.instructions.at(-1);
+  assert(lastInstruction !== undefined);
+  return lastInstruction.opcode === FlourOpcode.CALL;
 }
 
 /**

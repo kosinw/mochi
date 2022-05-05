@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "bin": "dist/src/repl.js",
   "engines": {
-    "node": "^16.13.2"
+    "node": "^18.1.0"
   },
   "mocha": {
     "reporter": "spec",

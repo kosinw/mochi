@@ -16,12 +16,13 @@
 /// along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ///
 
-import * as flour from "@module/flour";
-import * as util from "util";
+
+import util from "util";
 import assert from "assert";
 import invariant from "invariant";
 import { Multi, multi, method } from "@arrows/multimethod";
-import { FlourOpcode, Instruction } from "@module/flour";
+import * as flour from "@module/flour";
+import { FlourOpcode } from "@module/flour";
 
 ////////////////////////////////////////////////////////
 //
@@ -468,8 +469,9 @@ function makeUnit(name: string, objectFile: flour.ObjectFile, parent?: Compilati
  * @returns parent compilation unit
  */
 function unitEpilogue(unit: CompilationUnit): void {
+  // TODO(kosinw): I don't think this does proper tail call for if expressions :thonk:
+  if (flour.hasTailCall(unit.chunk)) { flour.tailCall(unit.chunk); }
   flour.emitInstruction(unit.chunk, flour.single(FlourOpcode.RETURN));
-  // return unit.parent;
 }
 
 type CompileDatumGeneric = Multi & {
@@ -480,7 +482,9 @@ type CompileDatumGeneric = Multi & {
 enum SpecialForm {
   LET = "let",
   IF = "if",
-  LAMBDA = "lambda"
+  LAMBDA = "lambda",
+  BEGIN = "begin",
+  DEFINE = "define"
 };
 
 const compileDatum: CompileDatumGeneric = multi(
@@ -522,6 +526,8 @@ const compileExpressionGeneric: CompileExpressionGeneric = multi(
   method(isSpecialForm(SpecialForm.LET), dispatchLet),
   method(isSpecialForm(SpecialForm.IF), dispatchConditional),
   method(isSpecialForm(SpecialForm.LAMBDA), dispatchLambda),
+  method(isSpecialForm(SpecialForm.BEGIN), dispatchBegin),
+  method(isSpecialForm(SpecialForm.DEFINE), dispatchDefine),
   method(isPrimitiveCall, dispatchPrimitiveCall),
   method(
     SyntaxTreeVariant.LIST,
@@ -690,19 +696,26 @@ function dispatchLet(expr: SyntaxTree, unit: CompilationUnit): void {
   const letBindings = bindings();
 
   letBindings.slice().reverse().forEach(binding => {
-    // const local = flour.resolveSymbol(unit.objectFile, binding.name);
     void compileExpression(binding.expr, unit);
-    // flour.emitInstruction(
-    //   unit.chunk,
-    //   flour.complex(FlourOpcode.DEFINE_VARIABLE, local, binding.line)
-    // );
   });
+
+  const [nextChunk, ix] = flour.allocateChunk(unit.objectFile, "let");
+
+  flour.emitInstruction(
+    unit.chunk,
+    flour.complex(FlourOpcode.CLOSURE, ix, expr.line)
+  );
+
+  flour.emitInstruction(
+    unit.chunk,
+    flour.complex(FlourOpcode.CALL, letBindings.length, expr.line)
+  );
 
   letBindings.forEach(binding => {
     const local = flour.resolveName(unit.objectFile, binding.name);
     flour.emitInstruction(
-      unit.chunk,
-      flour.complex(FlourOpcode.DEFINE_VARIABLE, local, binding.line)
+      nextChunk,
+      flour.complex(FlourOpcode.DECLARE_VARIABLE, local, binding.line)
     );
   });
 
@@ -713,7 +726,61 @@ function dispatchLet(expr: SyntaxTree, unit: CompilationUnit): void {
     `Expected ${util.inspect(subexpr)} to be a sequence of expressions. Line ${expr.line}.`
   );
 
-  void compileSequence(subexpr, unit);
+  void compileSequence(subexpr, {
+    chunk: nextChunk,
+    objectFile: unit.objectFile,
+    bindings: unit.bindings
+  });
+
+
+  flour.emitInstruction(
+    nextChunk,
+    flour.single(FlourOpcode.RETURN)
+  );
+}
+
+/**
+ * Dispatches to a single variable binding expression based on syntax tree.
+ * 
+ * @param expr a syntax tree
+ * @param unit a compilation unit
+ */
+function dispatchDefine(expr: SyntaxTree, unit: CompilationUnit): void {
+  assert(
+    expr.variant === SyntaxTreeVariant.LIST
+    && expr.value[0]
+    && expr.value[0].variant === SyntaxTreeVariant.ATOM
+    && expr.value[0].value.variant === DatumVariant.SYMBOL
+    && expr.value[0].value.value === SpecialForm.DEFINE
+  );
+
+  const variable = expr.value[1];
+  const subexpr = expr.value[2];
+
+  invariant(
+    variable !== undefined &&
+    variable.variant === SyntaxTreeVariant.ATOM &&
+    variable.value.variant === DatumVariant.SYMBOL,
+    `Expected ${util.inspect(variable)} to be a symbol. Line ${variable.line}.`
+  );
+
+  invariant(
+    subexpr !== undefined,
+    `Expected ${util.inspect(subexpr)} to be an expression. Line ${subexpr.line}.`
+  );
+
+  void compileExpression(subexpr, unit);
+
+  const local = flour.resolveName(unit.objectFile, variable.value.value);
+
+  flour.emitInstruction(
+    unit.chunk,
+    flour.complex(
+      FlourOpcode.DECLARE_VARIABLE,
+      local,
+      expr.line
+    )
+  );
 }
 
 /**
@@ -757,7 +824,7 @@ function dispatchConditional(expr: SyntaxTree, unit: CompilationUnit): void {
   const alternative = expr.value[3];
 
   if (alternative !== undefined) {
-    flour.patchJump(unit.chunk, jump);
+    flour.patchForwardJump(unit.chunk, jump);
 
     jump = flour.emitInstruction(
       unit.chunk,
@@ -767,7 +834,7 @@ function dispatchConditional(expr: SyntaxTree, unit: CompilationUnit): void {
     void compileExpression(alternative, unit);
   }
 
-  flour.patchJump(unit.chunk, jump);
+  flour.patchForwardJump(unit.chunk, jump);
 }
 
 /**
@@ -813,7 +880,7 @@ function dispatchLambda(expr: SyntaxTree, unit: CompilationUnit): void {
     flour.emitInstruction(
       chunk,
       flour.complex(
-        FlourOpcode.DEFINE_VARIABLE,
+        FlourOpcode.DECLARE_VARIABLE,
         flour.resolveName(unit.objectFile, parameter.value.value)
       )
     );
@@ -830,6 +897,24 @@ function dispatchLambda(expr: SyntaxTree, unit: CompilationUnit): void {
       expr.line
     )
   );
+}
+
+/**
+ * Dispatches to a begin expression based on syntax tree.
+ * 
+ * @param expr a syntax tree
+ * @param unit a compilation unit
+ */
+function dispatchBegin(expr: SyntaxTree, unit: CompilationUnit): void {
+  assert(
+    expr.variant === SyntaxTreeVariant.LIST
+    && expr.value[0]
+    && expr.value[0].variant === SyntaxTreeVariant.ATOM
+    && expr.value[0].value.variant === DatumVariant.SYMBOL
+    && expr.value[0].value.value === SpecialForm.BEGIN
+  );
+
+  void compileSequence(expr.value.slice(1), unit);
 }
 
 /**
@@ -881,16 +966,12 @@ function compileTail(expr: SyntaxTree[], unit: CompilationUnit): void {
  * 
  * @param source a source program
  */
-export function compile(source: string, object?: flour.ObjectFile): flour.ObjectFile {
+export function compile(source: string): flour.ObjectFile {
   const scanner = makeTokenizer(source);
   const parser = makeParser(scanner);
-
-  if (object === undefined) {
-    object = flour.makeObjectFile();
-  }
+  const object = flour.makeObjectFile();
 
   const unit = makeUnit("*module*", object);
-
 
   while (!match(parser, TokenVariant.EOF)) {
     const syntaxTree = expression(parser);
@@ -898,5 +979,6 @@ export function compile(source: string, object?: flour.ObjectFile): flour.Object
   }
 
   void unitEpilogue(unit);
+
   return object;
 }
