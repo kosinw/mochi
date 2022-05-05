@@ -176,7 +176,7 @@ function disassembleInstruction(
   let line = `${offset.toString(16).padStart(8, '0')} `;
 
   if (instruction.line && (instruction.line !== previousLine)) {
-    line += `${instruction.line.toString(16).padStart(4, ' ')} `;
+    line += `${instruction.line.toString().padStart(4, ' ')} `;
   } else {
     line += `   | `;
   }
@@ -259,6 +259,7 @@ export function complex(opcode: FlourOpcode, argument: number, line?: number): I
  */
 export type Chunk = {
   name: string;
+  index: number;
   constants: UnboxedValue[];
   data: BoxedValue[];
   instructions: Instruction[];
@@ -389,7 +390,7 @@ export function emitConstantInstruction(chunk: Chunk, value: UnboxedValue, line?
 /**
  * @returns a new chunk
  */
-export function makeChunk(name: string, object: ObjectFile): Chunk {
+export function makeChunk(name: string, object: ObjectFile, index: number): Chunk {
   return {
     name,
     constants: [
@@ -399,7 +400,8 @@ export function makeChunk(name: string, object: ObjectFile): Chunk {
     ],
     data: [],
     instructions: [],
-    object: object
+    object: object,
+    index
   };
 }
 
@@ -432,12 +434,15 @@ export function makeObjectFile(): ObjectFile {
  * @param object an object file
  * @param prefix a prefix for new chunk name
  */
-export function allocateChunk(object: ObjectFile, prefix: string = 'lambda'): [Chunk, number] {
-  const name = `(unnamed (${prefix} ${object.chunks.size}))`;
-  const chunk = makeChunk(name, object);
+export function allocateChunk(object: ObjectFile, name?: string): [Chunk, number] {
+  const ix = object.chunks.size;
+  if (name === undefined) {
+    name = `(unnamed (chunk ${ix}))`;
+  }
+  const chunk = makeChunk(name, object, ix);
   assert(!object.chunks.has(name));
   object.chunks.set(name, chunk);
-  return [chunk, object.chunks.size - 1];
+  return [chunk, ix];
 }
 
 /**

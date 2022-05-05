@@ -450,7 +450,8 @@ function makeUnit(name: string, objectFile: flour.ObjectFile, parent?: Compilati
   let chunk = objectFile.chunks.get(name);
 
   if (chunk === undefined) {
-    chunk = flour.makeChunk(name, objectFile);
+    const [_chunk, ix] = flour.allocateChunk(objectFile, name);
+    chunk = _chunk;
     objectFile.chunks.set(name, chunk);
   }
 
@@ -470,7 +471,7 @@ function makeUnit(name: string, objectFile: flour.ObjectFile, parent?: Compilati
  */
 function unitEpilogue(unit: CompilationUnit): void {
   // TODO(kosinw): I don't think this does proper tail call for if expressions :thonk:
-  if (flour.hasTailCall(unit.chunk)) { flour.tailCall(unit.chunk); }
+  // if (flour.hasTailCall(unit.chunk)) { flour.tailCall(unit.chunk); }
   flour.emitInstruction(unit.chunk, flour.single(FlourOpcode.RETURN));
 }
 
@@ -699,7 +700,7 @@ function dispatchLet(expr: SyntaxTree, unit: CompilationUnit): void {
     void compileExpression(binding.expr, unit);
   });
 
-  const [nextChunk, ix] = flour.allocateChunk(unit.objectFile, "let");
+  const [nextChunk, ix] = flour.allocateChunk(unit.objectFile);
 
   flour.emitInstruction(
     unit.chunk,
@@ -731,7 +732,6 @@ function dispatchLet(expr: SyntaxTree, unit: CompilationUnit): void {
     objectFile: unit.objectFile,
     bindings: unit.bindings
   });
-
 
   flour.emitInstruction(
     nextChunk,

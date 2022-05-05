@@ -7,6 +7,7 @@ export enum FlourOpcode {
   DECLARE_VARIABLE,
   GET_VARIABLE,
   SET_VARIABLE,
+  NOP,
 
   /// Control flow instructions.
   JUMP,
