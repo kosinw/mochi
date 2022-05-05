@@ -21,7 +21,7 @@ import * as util from "util";
 import assert from "assert";
 import invariant from "invariant";
 import { Multi, multi, method } from "@arrows/multimethod";
-import { FlourOpcode } from "@module/flour";
+import { FlourOpcode, Instruction } from "@module/flour";
 
 ////////////////////////////////////////////////////////
 //
@@ -432,7 +432,7 @@ export function expression(parser: Parser): SyntaxTree {
  * One unit usually represents the current lexical scope being compiled.
  */
 type CompilationUnit = {
-  readonly parent?: CompilationUnit;
+  // readonly parent?: CompilationUnit;
   readonly chunk: flour.Chunk;
   readonly objectFile: flour.ObjectFile;
   readonly bindings: Map<string, number>;
@@ -446,11 +446,15 @@ type CompilationUnit = {
  * @returns a new compilation unit
  */
 function makeUnit(name: string, objectFile: flour.ObjectFile, parent?: CompilationUnit): CompilationUnit {
-  const chunk = flour.makeChunk(name, objectFile);
-  objectFile.chunks.set(name, chunk);
+  let chunk = objectFile.chunks.get(name);
+
+  if (chunk === undefined) {
+    chunk = flour.makeChunk(name, objectFile);
+    objectFile.chunks.set(name, chunk);
+  }
 
   return {
-    parent,
+    // parent,
     chunk: chunk,
     objectFile,
     bindings: parent?.bindings || new Map()
@@ -463,9 +467,9 @@ function makeUnit(name: string, objectFile: flour.ObjectFile, parent?: Compilati
  * @param unit a compilation unit
  * @returns parent compilation unit
  */
-function unitEpilogue(unit: CompilationUnit): CompilationUnit | undefined {
+function unitEpilogue(unit: CompilationUnit): void {
   flour.emitInstruction(unit.chunk, flour.single(FlourOpcode.RETURN));
-  return unit.parent;
+  // return unit.parent;
 }
 
 type CompileDatumGeneric = Multi & {
@@ -475,8 +479,9 @@ type CompileDatumGeneric = Multi & {
 
 enum SpecialForm {
   LET = "let",
-  IF = "if"
-}
+  IF = "if",
+  LAMBDA = "lambda"
+};
 
 const compileDatum: CompileDatumGeneric = multi(
   (datum: Datum, unit: CompilationUnit, line: number) => datum.variant,
@@ -490,7 +495,7 @@ const compileDatum: CompileDatumGeneric = multi(
   }),
   method(DatumVariant.SYMBOL, (datum: Datum, unit: CompilationUnit, line: number) => {
     assert(datum.variant === DatumVariant.SYMBOL);
-    const local = flour.resolveSymbol(unit.objectFile, datum.value);
+    const local = flour.resolveName(unit.objectFile, datum.value);
     flour.emitInstruction(
       unit.chunk,
       flour.complex(FlourOpcode.GET_VARIABLE, local, line)
@@ -516,6 +521,7 @@ const compileExpressionGeneric: CompileExpressionGeneric = multi(
   ),
   method(isSpecialForm(SpecialForm.LET), dispatchLet),
   method(isSpecialForm(SpecialForm.IF), dispatchConditional),
+  method(isSpecialForm(SpecialForm.LAMBDA), dispatchLambda),
   method(isPrimitiveCall, dispatchPrimitiveCall),
   method(
     SyntaxTreeVariant.LIST,
@@ -527,8 +533,14 @@ const compileExpressionGeneric: CompileExpressionGeneric = multi(
         return;
       }
       // NOTE(kosinw): Handle compound procedure call
-      // compileTail(expr.value, unit);
-      invariant(false, `Compound procedure application has not been implemented yet! ${util.inspect(expr)}`);
+      void compileTail(expr.value, unit);
+      const procedure = expr.value[0];
+      assert(procedure !== undefined)
+      void compileExpression(procedure, unit);
+      flour.emitInstruction(
+        unit.chunk,
+        flour.complex(FlourOpcode.CALL, expr.value.length - 1, expr.line)
+      );
     }
   )
 );
@@ -567,7 +579,7 @@ const PRIMITIVE_PROCEDURES: Map<string, PrimitiveInstructionCompiler> = new Map(
   ["<", makePrimitiveCompiler(FlourOpcode.LESS, 2)],
   [">", makePrimitiveCompiler(FlourOpcode.GREATER, 2)],
   ["expt", makePrimitiveCompiler(FlourOpcode.POW, 2)],
-  ["remainder", makePrimitiveCompiler(FlourOpcode.MOD, 2)],
+  ["remainder", makePrimitiveCompiler(FlourOpcode.MOD, 2)]
 ]);
 
 /**
@@ -675,23 +687,33 @@ function dispatchLet(expr: SyntaxTree, unit: CompilationUnit): void {
     });
 
   /// TODO(kosinw): Add proper closures by making this a call instruction.
-  bindings().reverse().forEach(binding => {
-    const local = flour.resolveSymbol(unit.objectFile, binding.name);
+  const letBindings = bindings();
+
+  letBindings.slice().reverse().forEach(binding => {
+    // const local = flour.resolveSymbol(unit.objectFile, binding.name);
     void compileExpression(binding.expr, unit);
+    // flour.emitInstruction(
+    //   unit.chunk,
+    //   flour.complex(FlourOpcode.DEFINE_VARIABLE, local, binding.line)
+    // );
+  });
+
+  letBindings.forEach(binding => {
+    const local = flour.resolveName(unit.objectFile, binding.name);
     flour.emitInstruction(
       unit.chunk,
       flour.complex(FlourOpcode.DEFINE_VARIABLE, local, binding.line)
     );
   });
 
-  const subexpr = expr.value[2];
+  const subexpr = expr.value.slice(2);
 
   invariant(
-    subexpr,
-    `Expected ${util.inspect(subexpr)} to be an expression. Line ${expr.line}.`
+    subexpr.length > 0,
+    `Expected ${util.inspect(subexpr)} to be a sequence of expressions. Line ${expr.line}.`
   );
 
-  void compileExpression(subexpr, unit);
+  void compileSequence(subexpr, unit);
 }
 
 /**
@@ -708,6 +730,106 @@ function dispatchConditional(expr: SyntaxTree, unit: CompilationUnit): void {
     && expr.value[0].value.variant === DatumVariant.SYMBOL
     && expr.value[0].value.value === SpecialForm.IF
   );
+
+  const test = expr.value[1];
+
+  invariant(
+    test !== undefined,
+    `Expected ${util.inspect(test)} to be an expression. Line ${expr.line}.`
+  );
+
+  void compileExpression(test, unit);
+
+  let jump = flour.emitInstruction(
+    unit.chunk,
+    flour.complex(FlourOpcode.JUMP_IF_FALSE, 0xffffffff, test.line)
+  );
+
+  const consequence = expr.value[2];
+
+  invariant(
+    test !== undefined,
+    `Expected ${util.inspect(test)} to be an expression. Line ${test.line}.`
+  );
+
+  void compileExpression(consequence, unit);
+
+  const alternative = expr.value[3];
+
+  if (alternative !== undefined) {
+    flour.patchJump(unit.chunk, jump);
+
+    jump = flour.emitInstruction(
+      unit.chunk,
+      flour.complex(FlourOpcode.JUMP, 0xffffffff, consequence.line)
+    );
+
+    void compileExpression(alternative, unit);
+  }
+
+  flour.patchJump(unit.chunk, jump);
+}
+
+/**
+ * Dispatches to a lambda expression based on syntax tree.
+ * 
+ * @param expr a syntax tree
+ * @param unit a compilation unit
+ */
+function dispatchLambda(expr: SyntaxTree, unit: CompilationUnit): void {
+  assert(
+    expr.variant === SyntaxTreeVariant.LIST
+    && expr.value[0]
+    && expr.value[0].variant === SyntaxTreeVariant.ATOM
+    && expr.value[0].value.variant === DatumVariant.SYMBOL
+    && expr.value[0].value.value === SpecialForm.LAMBDA
+  );
+
+  const parameterList = expr.value[1];
+  const body = expr.value.slice(2);
+
+  // TOOD(kosinw): Add support for variadic procedures
+  invariant(
+    parameterList !== undefined &&
+    parameterList.variant === SyntaxTreeVariant.LIST,
+    `Expected ${util.inspect(parameterList)} to be a list of parameters. Line ${expr.line}.`
+  );
+
+  invariant(
+    body.length > 0,
+    `Expected ${util.inspect(body)} to be a list of parameters. Line ${expr.line}.`
+  );
+
+  const [chunk, ix] = flour.allocateChunk(unit.objectFile);
+  const nextUnit: CompilationUnit = { bindings: unit.bindings, chunk, objectFile: unit.objectFile };
+
+  parameterList.value.reverse().forEach(parameter => {
+    invariant(
+      parameter.variant === SyntaxTreeVariant.ATOM &&
+      parameter.value.variant === DatumVariant.SYMBOL,
+      `Expected ${util.inspect(parameter)} to be a symbol. Line ${expr.line}.`
+    );
+
+    flour.emitInstruction(
+      chunk,
+      flour.complex(
+        FlourOpcode.DEFINE_VARIABLE,
+        flour.resolveName(unit.objectFile, parameter.value.value)
+      )
+    );
+  });
+
+  void compileSequence(body, nextUnit);
+  void unitEpilogue(nextUnit);
+
+  flour.emitInstruction(
+    unit.chunk,
+    flour.complex(
+      FlourOpcode.CLOSURE,
+      ix,
+      expr.line
+    )
+  );
 }
 
 /**
@@ -718,6 +840,29 @@ function dispatchConditional(expr: SyntaxTree, unit: CompilationUnit): void {
  */
 function compileExpression(expr: SyntaxTree, unit: CompilationUnit): void {
   return compileExpressionGeneric(expr, unit);
+}
+
+/**
+ * Emits bytecode corresponding to code in sequence of expressions.
+ * 
+ * @param expr a sequence of abstract syntax tree
+ * @param unit a compilation unit
+ */
+function compileSequence(expr: SyntaxTree[], unit: CompilationUnit): void {
+  invariant(
+    expr.length > 0,
+    `Expected ${util.inspect(expr)} to be a sequence of expressions.`
+  );
+
+  expr.slice(0, -1).forEach(subexpr => {
+    void compileExpression(subexpr, unit);
+    flour.emitInstruction(unit.chunk, flour.single(FlourOpcode.POP, subexpr.line));
+  });
+
+  const last = expr.at(-1);
+  assert(last !== undefined);
+
+  void compileExpression(last, unit);
 }
 
 /**
@@ -736,11 +881,16 @@ function compileTail(expr: SyntaxTree[], unit: CompilationUnit): void {
  * 
  * @param source a source program
  */
-export function compile(source: string): flour.ObjectFile {
+export function compile(source: string, object?: flour.ObjectFile): flour.ObjectFile {
   const scanner = makeTokenizer(source);
   const parser = makeParser(scanner);
-  const object = flour.makeObjectFile();
+
+  if (object === undefined) {
+    object = flour.makeObjectFile();
+  }
+
   const unit = makeUnit("*module*", object);
+
 
   while (!match(parser, TokenVariant.EOF)) {
     const syntaxTree = expression(parser);

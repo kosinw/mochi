@@ -13,6 +13,7 @@ export enum FlourOpcode {
   JUMP_IF_FALSE,
   CALL,
   RETURN,
+  POP,
 
   /// Instructions that could be implemented as primitive procedures.
   CLOSURE,

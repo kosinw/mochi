@@ -6,6 +6,8 @@ import figlet from 'figlet';
 import * as readline from 'readline';
 import chalk from 'chalk';
 import assert from 'assert';
+import util from 'util';
+
 function countParens(s: string): Map<string, number> {
   const map = new Map([
     ["(", 0],
@@ -64,6 +66,8 @@ async function main(): Promise<void> {
   console.log(notice);
   console.log();
 
+  let object = flour.makeObjectFile();
+
   const repl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
@@ -72,8 +76,13 @@ async function main(): Promise<void> {
   while (true) {
     const response = await questionAsync(repl, chalk.green('λ > '));
 
+    if (response === ":object") {
+      console.log(chalk.yellow(util.inspect(object, false, null)));
+      continue;
+    }
+
     try {
-      const object = ricecakes.compile(response);
+      object = ricecakes.compile(response);
       console.log(chalk.dim(flour.disassemble(object)));
     } catch (err) {
       console.error(chalk.red(err));

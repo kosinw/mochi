@@ -188,13 +188,21 @@ function disassembleInstruction(
         line += disassembleSymbolInstruction(object, argument);
         break;
       }
+    case FlourOpcode.CLOSURE:
+    case FlourOpcode.CALL:
+    case FlourOpcode.JUMP:
+    case FlourOpcode.JUMP_IF_FALSE:
+      {
+        const { argument } = instruction;
+        assert(argument !== undefined);
+        line += disassembleComplexInstruction(chunk, argument);
+        break;
+      }
     default:
       break;
   }
   return [
-    instruction.argument !== undefined ?
-      1 + WORD_SIZE + offset :
-      1 + offset,
+    instructionLength(instruction) + offset,
     line
   ];
 }
@@ -252,7 +260,7 @@ function disassembleChunk(chunk: Chunk, object: ObjectFile): string {
     offset = n;
   }
 
-  return buffer.join('\n')
+  return buffer.join('\n');
 }
 
 /**
@@ -260,9 +268,34 @@ function disassembleChunk(chunk: Chunk, object: ObjectFile): string {
  * 
  * @param chunk a chunk
  * @param instruction a flour instruction
+ * @returns index of instruction
  */
-export function emitInstruction(chunk: Chunk, instruction: Instruction): void {
+export function emitInstruction(chunk: Chunk, instruction: Instruction): number {
   chunk.instructions.push(instruction);
+  return chunk.instructions.length - 1;
+}
+
+/**
+ * Backpatches the jump instruction at offset to the current relative offset.
+ * 
+ * @param chunk a chunk
+ * @param offset the offset of the jump to patch
+ */
+export function patchJump(chunk: Chunk, offset: number): void {
+  const displacement = chunk
+    .instructions
+    .slice(offset)
+    .reduce((p, n) => p + instructionLength(n), 0);
+
+  chunk.instructions[offset].argument = displacement;
+}
+
+/**
+ * @param instruction an instruction
+ * @returns the length of the instruction in bytes
+ */
+function instructionLength(instruction: Instruction): number {
+  return instruction.argument !== undefined ? 1 + WORD_SIZE : 1;
 }
 
 // TODO(kosinw): Make sure rep invariants aren't broken (like practical limits)
@@ -292,9 +325,10 @@ function makeConstant(chunk: Chunk, value: UnboxedValue): number {
  * 
  * @param chunk a chunk
  * @param value a constant value
+ * @returns length of instruction in bytes
  */
-export function emitConstantInstruction(chunk: Chunk, value: UnboxedValue, line?: number): void {
-  emitInstruction(chunk, complex(FlourOpcode.CONSTANT, makeConstant(chunk, value), line));
+export function emitConstantInstruction(chunk: Chunk, value: UnboxedValue, line?: number): number {
+  return emitInstruction(chunk, complex(FlourOpcode.CONSTANT, makeConstant(chunk, value), line));
 }
 
 /**
@@ -338,20 +372,34 @@ export function makeObjectFile(): ObjectFile {
 }
 
 /**
- * Resolves the name of a symbol to its index in the object file.
+ * Creates a new, unnamed chunk in object file.
+ * 
+ * @param object an object file
+ * @param prefix a prefix for new chunk name
+ */
+export function allocateChunk(object: ObjectFile, prefix: string = 'lambda'): [Chunk, number] {
+  const name = `(unnamed ${prefix}/${object.chunks.size.toString(16).padStart(4, '0')})`;
+  const chunk = makeChunk(name, object);
+  assert(!object.chunks.has(name));
+  object.chunks.set(name, chunk);
+  return [chunk, object.chunks.size - 1];
+}
+
+/**
+ * Resolves the name of a variable to its index in the object file.
  * 
  * @param object an object file
  * @param symbol a symbol
  * @returns the index for a given symbol
  */
-export function resolveSymbol(object: ObjectFile, symbol: string): number {
+export function resolveName(object: ObjectFile, symbol: string): number {
   if (object.symbols.has(symbol)) {
     const ix = object.symbols.get(symbol);
     assert(ix !== undefined);
-    object._symbolReverseMapping.set(ix, symbol);
     return ix;
   }
 
+  object._symbolReverseMapping.set(object.symbols.size, symbol);
   object.symbols.set(symbol, object.symbols.size);
   return object.symbols.size - 1;
 }
