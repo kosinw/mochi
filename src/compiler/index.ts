@@ -119,7 +119,7 @@ const nextTokenGeneric: NextTokenGeneric = multi(
       method("f", makeTokenCombinator(TokenVariant.DATUM, { variant: DatumVariant.BOOLEAN, value: false })),
       method("\\", (x: Tokenizer): Token => {
         x.current += 1;
-        const literal = peekDatum(x);
+        const literal = peek(x) + peekDatum({ ...x, current: x.current + 1 });
         let value = literal.charAt(0);
 
         switch (literal) {
@@ -392,7 +392,7 @@ const expressionGeneric: ExpressionGeneric = multi(
     assert(x.current.variant === TokenVariant.READER_MACRO);
     const { start, value, line } = x.current;
     advance(x);
-    const subexpr = expression(x);
+    const subexpr = expressionGeneric(x);
     const extra = ReaderMacro.UNQUOTE_SPLICING === value ? 2 : 1;
     return {
       variant: SyntaxTreeVariant.LIST,
@@ -527,6 +527,7 @@ enum SpecialForm {
   BEGIN = "begin",
   DEFINE = "define",
   SET_BANG = "set!",
+  QUOTE = "quote"
 };
 
 const compileDatum: CompileDatumGeneric = multi(
@@ -575,6 +576,7 @@ const compileExpressionGeneric: CompileExpressionGeneric = multi(
   method(isSpecialForm(SpecialForm.BEGIN), dispatchBegin),
   method(isSpecialForm(SpecialForm.DEFINE), dispatchDefine),
   method(isSpecialForm(SpecialForm.SET_BANG), dispatchSet),
+  method(isSpecialForm(SpecialForm.QUOTE), dispatchQuote),
   // method(isPrimitiveCall, dispatchPrimitiveCall),
   method(
     SyntaxTreeVariant.LIST,
@@ -783,6 +785,48 @@ function dispatchLet(expr: SyntaxTree, unit: CompilationUnit): void {
     nextChunk,
     flour.single(FlourOpcode.RETURN)
   );
+}
+
+/**
+ * Dispatches to a quoted expression based on syntax tree.
+ * 
+ * @param expr a syntax tree
+ * @param unit a compilation unit
+ */
+function dispatchQuote(expr: SyntaxTree, unit: CompilationUnit): void {
+  assert(
+    expr.variant === SyntaxTreeVariant.LIST
+    && expr.value[0]
+    && expr.value[0].variant === SyntaxTreeVariant.ATOM
+    && expr.value[0].value.variant === DatumVariant.SYMBOL
+    && expr.value[0].value.value === SpecialForm.QUOTE
+  );
+
+  // TODO(kosinw): Add quotes with lists (not sure how this works?)
+  const subexpr = expr.value[1];
+
+  invariant(
+    subexpr.variant === SyntaxTreeVariant.ATOM,
+    `Expected quoted expression to be an atom. Line ${expr.line}.`
+  );
+
+  switch (subexpr.value.variant) {
+    case DatumVariant.SYMBOL:
+      flour.emitInstruction(
+        unit.chunk,
+        flour.complex(
+          FlourOpcode.CONSTANT,
+          flour.makeData(unit.chunk, {
+            variant: flour.BoxedValueVariant.SYMBOL,
+            value: subexpr.value.value
+          })
+        )
+      );
+      break;
+    default:
+      compileDatum(subexpr.value, unit, subexpr.line);
+      break;
+  }
 }
 
 /**

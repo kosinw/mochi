@@ -47,21 +47,21 @@ function question(
 
       const program = buffer.join("\n");
 
-      const matched = PAIRS.
-        every(pair =>
-          count(
-            program,
-            pair[0]
-          ) === count(
-            program,
-            pair[1]
-          ));
+      // const matched = PAIRS.
+      //   every(pair =>
+      //     count(
+      //       program,
+      //       pair[0]
+      //     ) === count(
+      //       program,
+      //       pair[1]
+      //     ));
 
-      if (matched) {
+      // if (matched) {
         repl.close();
-      }
+      // }
 
-      repl.setPrompt("...");
+      // repl.setPrompt("...");
     });
 
     repl.addListener('SIGINT', () => { process.exit(0); });

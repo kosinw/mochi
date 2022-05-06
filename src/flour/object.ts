@@ -25,7 +25,7 @@ export type Ptr = number;
 export enum BoxedValueVariant {
   PAIR = 0,
   SYMBOL,
-  CLOSURE,
+  // CLOSURE,
   // STRING,
   // VECTOR
 };
@@ -39,7 +39,6 @@ export enum BoxedValueVariant {
 export type BoxedValue =
   | { variant: BoxedValueVariant.PAIR, car: Ptr, cdr: Ptr }
   | { variant: BoxedValueVariant.SYMBOL, value: string }
-  | { variant: BoxedValueVariant.CLOSURE, code: Ptr, upvalues: Ptr[] }; // NOTE(kosinw): Not sure if this is exactly correct
 
 export enum UnboxedValueVariant {
   NIL = 0,
@@ -82,7 +81,7 @@ export function fixnum(n: number): UnboxedValue {
  * @param n a string
  * @returns a new Flour character
  */
- export function character(n: string): UnboxedValue {
+export function character(n: string): UnboxedValue {
   // TODO(kosinw): Assert 32-bit signed integer.
   return {
     variant: UnboxedValueVariant.CHARACTER,
@@ -115,7 +114,16 @@ export function nil(): UnboxedValue {
   }
 }
 
-function disassembleUnboxed(unboxed: UnboxedValue): string {
+function disassembleBoxed(boxed: BoxedValue): string {
+  switch (boxed.variant) {
+    case BoxedValueVariant.SYMBOL:
+      return `<symbol ${boxed.value}>`;
+    case BoxedValueVariant.PAIR:
+      return `<pair (${boxed.car} . ${boxed.cdr})>`;
+  }
+}
+
+function disassembleUnboxed(chunk: Chunk, unboxed: UnboxedValue): string {
   switch (unboxed.variant) {
     case UnboxedValueVariant.BOOLEAN:
       return unboxed.value ? "#t" : "#f";
@@ -124,7 +132,7 @@ function disassembleUnboxed(unboxed: UnboxedValue): string {
     case UnboxedValueVariant.NIL:
       return 'nil';
     case UnboxedValueVariant.PTR:
-      return `<ptr ${unboxed.value}>`;
+      return `${disassembleBoxed(chunk.data[unboxed.value])}`;
     case UnboxedValueVariant.CHARACTER:
       return unboxed.value;
     default:
@@ -147,7 +155,7 @@ function disassembleConstantInstruction(
   chunk: Chunk,
   offset: number
 ): string {
-  return ` ${offset.toString(16).padStart(8, '0')} '${disassembleUnboxed(chunk.constants[offset])}'`;
+  return ` ${offset.toString(16).padStart(8, '0')} '${disassembleUnboxed(chunk, chunk.constants[offset])}'`;
 }
 
 function disassembleComplexInstruction(
@@ -382,7 +390,9 @@ function instructionLength(instruction: Instruction): number {
  * @returns pointer to constant value
  */
 function makeConstant(chunk: Chunk, value: UnboxedValue): number {
-  if (value.variant === UnboxedValueVariant.FIXNUM || value.variant === UnboxedValueVariant.CHARACTER) {
+  if (value.variant === UnboxedValueVariant.FIXNUM ||
+    value.variant === UnboxedValueVariant.CHARACTER ||
+    value.variant === UnboxedValueVariant.PTR) {
     const n = chunk.constants.push(value) - 1;
     return n;
   } else if (value.variant === UnboxedValueVariant.NIL) {
@@ -392,6 +402,21 @@ function makeConstant(chunk: Chunk, value: UnboxedValue): number {
   }
 
   return 2;
+}
+
+/**
+ * Adds a new variable-length data to the given chunk.
+ * 
+ * @param chunk a chunk
+ * @param value a value
+ * @returns pointer to constant value which points to boxed value
+ */
+export function makeData(chunk: Chunk, value: BoxedValue): number {
+  const n = chunk.data.push(value) - 1;
+  return makeConstant(chunk, {
+    variant: UnboxedValueVariant.PTR,
+    value: n
+  });
 }
 
 /**
