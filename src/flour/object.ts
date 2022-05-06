@@ -25,7 +25,7 @@ export type Ptr = number;
 export enum BoxedValueVariant {
   PAIR,
   SYMBOL,
-  // CLOSURE,
+  CLOSURE,
   // STRING,
   // VECTOR
 };

@@ -22,7 +22,7 @@ import assert from "assert";
 import invariant from "invariant";
 import { Multi, multi, method } from "@arrows/multimethod";
 import * as flour from "@module/flour";
-import { BoxedValueVariant, FlourOpcode } from "@module/flour";
+import { FlourOpcode } from "@module/flour";
 
 ////////////////////////////////////////////////////////
 //
@@ -111,8 +111,6 @@ const nextTokenGeneric: NextTokenGeneric = multi(
   method("", makeTokenCombinator(TokenVariant.EOF, undefined, 0)),
   method("#", (x: Tokenizer): Token => {
     x.current += 1;
-    // TODO(kosinw): Maybe move this to the parser and instead just emit a special
-    // hash token (in parser we construct the other thing)
     const hashGeneric: NextTokenGeneric = multi(
       (x: Tokenizer) => peek(x),
       method("t", makeTokenCombinator(TokenVariant.DATUM, { variant: DatumVariant.BOOLEAN, value: true })),
@@ -621,7 +619,6 @@ function makePrimitiveCompiler(opcode: FlourOpcode, arity: number): PrimitiveIns
   };
 }
 
-// TODO(kosinw): Improve this beyond just arity checking, but also applicability checking?
 const PRIMITIVE_PROCEDURES: Map<string, PrimitiveInstructionCompiler> = new Map([
   ["negate", makePrimitiveCompiler(FlourOpcode.NEGATE, 1)],
   ["not", makePrimitiveCompiler(FlourOpcode.NOT, 1)],
@@ -741,7 +738,6 @@ function dispatchLet(expr: SyntaxTree, unit: CompilationUnit): void {
       };
     });
 
-  /// TODO(kosinw): Add proper closures by making this a call instruction.
   const letBindings = bindings();
 
   letBindings.slice().reverse().forEach(binding => {
@@ -988,7 +984,6 @@ function dispatchConditional(expr: SyntaxTree, unit: CompilationUnit): void {
     void compileExpression(alternative, unit);
   }
 
-  // TODO(kosinw): This jump definitely does not work
   flour.patchForwardJump(unit.chunk, jump);
 }
 
