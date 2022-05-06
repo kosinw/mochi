@@ -45,6 +45,7 @@ export enum UnboxedValueVariant {
   NIL = 0,
   FIXNUM,
   BOOLEAN,
+  CHARACTER,
   PTR
 };
 
@@ -58,7 +59,8 @@ export type UnboxedValue =
   | { variant: UnboxedValueVariant.FIXNUM, value: number }
   | { variant: UnboxedValueVariant.NIL }
   | { variant: UnboxedValueVariant.BOOLEAN, value: boolean }
-  | { variant: UnboxedValueVariant.PTR, value: Ptr };
+  | { variant: UnboxedValueVariant.PTR, value: Ptr }
+  | { variant: UnboxedValueVariant.CHARACTER, value: string };
 
 /**
  * Creates a new Flour fixed number.
@@ -70,6 +72,20 @@ export function fixnum(n: number): UnboxedValue {
   // TODO(kosinw): Assert 32-bit signed integer.
   return {
     variant: UnboxedValueVariant.FIXNUM,
+    value: n
+  }
+}
+
+/**
+ * Creates a new Flour string.
+ * 
+ * @param n a string
+ * @returns a new Flour character
+ */
+ export function character(n: string): UnboxedValue {
+  // TODO(kosinw): Assert 32-bit signed integer.
+  return {
+    variant: UnboxedValueVariant.CHARACTER,
     value: n
   }
 }
@@ -109,6 +125,8 @@ function disassembleUnboxed(unboxed: UnboxedValue): string {
       return 'nil';
     case UnboxedValueVariant.PTR:
       return `<ptr ${unboxed.value}>`;
+    case UnboxedValueVariant.CHARACTER:
+      return unboxed.value;
     default:
       throw Error('unknown unboxed value variant');
   }
@@ -191,7 +209,7 @@ function disassembleInstruction(
         line += disassembleConstantInstruction(chunk, argument);
         break;
       }
-    case FlourOpcode.DECLARE_VARIABLE:
+    case FlourOpcode.DEFINE_VARIABLE:
     case FlourOpcode.GET_VARIABLE:
       {
         const { argument } = instruction;
@@ -364,7 +382,7 @@ function instructionLength(instruction: Instruction): number {
  * @returns pointer to constant value
  */
 function makeConstant(chunk: Chunk, value: UnboxedValue): number {
-  if (value.variant === UnboxedValueVariant.FIXNUM) {
+  if (value.variant === UnboxedValueVariant.FIXNUM || value.variant === UnboxedValueVariant.CHARACTER) {
     const n = chunk.constants.push(value) - 1;
     return n;
   } else if (value.variant === UnboxedValueVariant.NIL) {

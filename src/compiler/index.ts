@@ -22,7 +22,7 @@ import assert from "assert";
 import invariant from "invariant";
 import { Multi, multi, method } from "@arrows/multimethod";
 import * as flour from "@module/flour";
-import { FlourOpcode } from "@module/flour";
+import { BoxedValueVariant, FlourOpcode } from "@module/flour";
 
 ////////////////////////////////////////////////////////
 //
@@ -33,7 +33,7 @@ import { FlourOpcode } from "@module/flour";
 export enum DatumVariant {
   FIXNUM = 'fixnum',
   BOOLEAN = 'boolean',
-  // CHARACTER,
+  CHARACTER = 'character',
   SYMBOL = 'symbol',
   // STRING
 };
@@ -44,7 +44,8 @@ export enum DatumVariant {
 export type Datum =
   | { variant: DatumVariant.FIXNUM, value: number }
   | { variant: DatumVariant.BOOLEAN, value: boolean }
-  | { variant: DatumVariant.SYMBOL, value: string };
+  | { variant: DatumVariant.SYMBOL, value: string }
+  | { variant: DatumVariant.CHARACTER, value: string };
 
 /**
  * A Scheme reader macro as defined by the R5RS.
@@ -116,6 +117,45 @@ const nextTokenGeneric: NextTokenGeneric = multi(
       (x: Tokenizer) => peek(x),
       method("t", makeTokenCombinator(TokenVariant.DATUM, { variant: DatumVariant.BOOLEAN, value: true })),
       method("f", makeTokenCombinator(TokenVariant.DATUM, { variant: DatumVariant.BOOLEAN, value: false })),
+      method("\\", (x: Tokenizer): Token => {
+        x.current += 1;
+        const literal = peekDatum(x);
+        let value = literal.charAt(0);
+
+        switch (literal) {
+          case "space":
+            value = " ";
+            break;
+          case "linefeed":
+          case "newline":
+            value = "\n";
+            break;
+          case "tab":
+            value = "\t";
+            break;
+          case "return":
+            value = "\r";
+            break;
+          default:
+            // TODO(kosinw): Change this to add unicode characters + other shit ig
+            invariant(
+              literal.length === 1,
+              `Expected character literal to only be one character long. Line ${x.line}.`
+            );
+            break;
+        }
+
+        const procedure = makeTokenCombinator(
+          TokenVariant.DATUM,
+          {
+            variant: DatumVariant.CHARACTER,
+            value
+          },
+          literal.length
+        );
+
+        return procedure(x);
+      }),
       method((x: Tokenizer): Token => invariant(false, `Encountered unknown character after '#', ${peek(x)}.`))
     );
 
@@ -485,7 +525,8 @@ enum SpecialForm {
   IF = "if",
   LAMBDA = "lambda",
   BEGIN = "begin",
-  DEFINE = "define"
+  DEFINE = "define",
+  SET_BANG = "set!",
 };
 
 const compileDatum: CompileDatumGeneric = multi(
@@ -505,6 +546,10 @@ const compileDatum: CompileDatumGeneric = multi(
       unit.chunk,
       flour.complex(FlourOpcode.GET_VARIABLE, local, line)
     );
+  }),
+  method(DatumVariant.CHARACTER, (datum: Datum, unit: CompilationUnit, line: number) => {
+    assert(datum.variant === DatumVariant.CHARACTER);
+    flour.emitConstantInstruction(unit.chunk, flour.character(datum.value), line);
   }),
   method((datum: Datum, unit: CompilationUnit) => {
     invariant(false, `Compiling unknown datum, ${util.inspect(datum)}`);
@@ -529,7 +574,8 @@ const compileExpressionGeneric: CompileExpressionGeneric = multi(
   method(isSpecialForm(SpecialForm.LAMBDA), dispatchLambda),
   method(isSpecialForm(SpecialForm.BEGIN), dispatchBegin),
   method(isSpecialForm(SpecialForm.DEFINE), dispatchDefine),
-  method(isPrimitiveCall, dispatchPrimitiveCall),
+  method(isSpecialForm(SpecialForm.SET_BANG), dispatchSet),
+  // method(isPrimitiveCall, dispatchPrimitiveCall),
   method(
     SyntaxTreeVariant.LIST,
     (expr: SyntaxTree, unit: CompilationUnit, line: number) => {
@@ -716,7 +762,7 @@ function dispatchLet(expr: SyntaxTree, unit: CompilationUnit): void {
     const local = flour.resolveName(unit.objectFile, binding.name);
     flour.emitInstruction(
       nextChunk,
-      flour.complex(FlourOpcode.DECLARE_VARIABLE, local, binding.line)
+      flour.complex(FlourOpcode.DEFINE_VARIABLE, local, binding.line)
     );
   });
 
@@ -776,7 +822,69 @@ function dispatchDefine(expr: SyntaxTree, unit: CompilationUnit): void {
   flour.emitInstruction(
     unit.chunk,
     flour.complex(
-      FlourOpcode.DECLARE_VARIABLE,
+      FlourOpcode.DEFINE_VARIABLE,
+      local,
+      expr.line
+    )
+  );
+
+  flour.emitInstruction(
+    unit.chunk,
+    flour.complex(
+      FlourOpcode.GET_VARIABLE,
+      local,
+      expr.line
+    )
+  );
+}
+
+/**
+ * Dispatches to a single variable mutation expression based on syntax tree.
+ * 
+ * @param expr a syntax tree
+ * @param unit a compilation unit
+ */
+function dispatchSet(expr: SyntaxTree, unit: CompilationUnit): void {
+  assert(
+    expr.variant === SyntaxTreeVariant.LIST
+    && expr.value[0]
+    && expr.value[0].variant === SyntaxTreeVariant.ATOM
+    && expr.value[0].value.variant === DatumVariant.SYMBOL
+    && expr.value[0].value.value === SpecialForm.SET_BANG
+  );
+
+  const variable = expr.value[1];
+  const subexpr = expr.value[2];
+
+  invariant(
+    variable !== undefined &&
+    variable.variant === SyntaxTreeVariant.ATOM &&
+    variable.value.variant === DatumVariant.SYMBOL,
+    `Expected ${util.inspect(variable)} to be a symbol. Line ${variable.line}.`
+  );
+
+  invariant(
+    subexpr !== undefined,
+    `Expected ${util.inspect(subexpr)} to be an expression. Line ${subexpr.line}.`
+  );
+
+  void compileExpression(subexpr, unit);
+
+  const local = flour.resolveName(unit.objectFile, variable.value.value);
+
+  flour.emitInstruction(
+    unit.chunk,
+    flour.complex(
+      FlourOpcode.SET_VARIABLE,
+      local,
+      expr.line
+    )
+  );
+
+  flour.emitInstruction(
+    unit.chunk,
+    flour.complex(
+      FlourOpcode.GET_VARIABLE,
       local,
       expr.line
     )
@@ -883,7 +991,7 @@ function dispatchLambda(expr: SyntaxTree, unit: CompilationUnit): void {
     flour.emitInstruction(
       chunk,
       flour.complex(
-        FlourOpcode.DECLARE_VARIABLE,
+        FlourOpcode.DEFINE_VARIABLE,
         flour.resolveName(unit.objectFile, parameter.value.value)
       )
     );
