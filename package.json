@@ -33,6 +33,7 @@
   },
   "dependencies": {
     "@arrows/multimethod": "^2.1.0",
+    "@gct256/hexdump": "^0.1.2",
     "chalk": "4.1.2",
     "figlet": "^1.5.2",
     "invariant": "^2.2.4",

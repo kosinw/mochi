@@ -7,6 +7,7 @@ import readline from 'node:readline';
 import chalk from 'chalk';
 import assert from 'assert';
 import util from 'util';
+import { hexdump } from '@gct256/hexdump';
 
 function count(s: string, c: string): number {
   assert(c.length === 1);
@@ -58,7 +59,7 @@ function question(
       //     ));
 
       // if (matched) {
-        repl.close();
+      repl.close();
       // }
 
       // repl.setPrompt("...");
@@ -104,6 +105,14 @@ async function main(): Promise<void> {
       break;
     } else if (response === ":reset") {
       object = flour.makeObjectFile();
+      continue;
+    } else if (response === ":asm") {
+      const buffer = flour.serialize(object);
+      console.log(chalk.dim(hexdump(buffer).join("\n")));
+      continue;
+    } else if (response === ":dis") {
+      console.log(chalk.dim(flour.disassemble(object)));
+      continue;
     }
 
     try {

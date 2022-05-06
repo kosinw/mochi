@@ -1,6 +1,6 @@
 ///
 /// File: flour/object.ts 
-/// Copyright (c) 2022 <kosinw@mit.edu>
+/// Copyright (c) 2022 Kosi Nwabueze and Anirudh Rahul
 ///
 /// This program is free software: you can redistribute it and/or modify
 /// it under the terms of the GNU Lesser General Public License as published by
@@ -480,7 +480,7 @@ export function makeObjectFile(): ObjectFile {
 export function allocateChunk(object: ObjectFile, name?: string): [Chunk, number] {
   const ix = object.chunks.size;
   if (name === undefined) {
-    name = `(unnamed (chunk ${ix}))`;
+    name = `(chk ${ix})`;
   }
   const chunk = makeChunk(name, object, ix);
   assert(!object.chunks.has(name));

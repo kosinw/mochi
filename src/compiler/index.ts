@@ -1,6 +1,6 @@
 ///
 /// File: compiler/index.ts 
-/// Copyright (c) 2022 <kosinw@mit.edu>
+/// Copyright (c) 2022 Kosi Nwabueze and Anirudh Rahul
 ///
 /// This program is free software: you can redistribute it and/or modify
 /// it under the terms of the GNU Lesser General Public License as published by
