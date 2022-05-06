@@ -1,5 +1,5 @@
 const MAX_PROGRAM_MEMORY = 1024*1024*16
-import {FlourOpcode, FlourUnboxedTypeCode} from "../../flour/opcode"
+import {FlourOpcode} from "../../flour/opcode"
 const UNBOXED_BYTE_LENGTH = 8;
 const UNBOXED_TYPE_LENGTH = 1;
 const UNBOXED_DATA_LENGTH = 4;
@@ -11,6 +11,10 @@ const INSTRUCTION_DATA_LENGTH = 4;
 
 let vm: DangoVM;
 
+enum FlourUnboxedTypeCode {
+  FIXNUM,
+  BOOLEAN
+}
 
 export function initVM(programBuffer: Uint8Array):void{
   vm = new DangoVM(programBuffer)
@@ -216,7 +220,7 @@ class DangoVM {
             i+=c.getInstructionData(i)*INSTRUCTION_BYTE_LENGTH
           }
           break;
-        case FlourOpcode.GET_LOCAL:
+        case FlourOpcode.GET_VARIABLE:
           // console.log("locsl")
           this.pushLocal(c.getInstructionData(i))
           break;

@@ -16,11 +16,13 @@
 /// along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ///
 
-import * as flour from "@module/flour";
+
+import util from "util";
 import assert from "assert";
+import invariant from "invariant";
 import { Multi, multi, method } from "@arrows/multimethod";
-import { Result } from "@badrap/result";
-import { FlourOpcode, UnboxedValueVariant } from "@module/flour";
+import * as flour from "@module/flour";
+import { BoxedValueVariant, FlourOpcode } from "@module/flour";
 
 ////////////////////////////////////////////////////////
 //
@@ -31,7 +33,7 @@ import { FlourOpcode, UnboxedValueVariant } from "@module/flour";
 export enum DatumVariant {
   FIXNUM = 'fixnum',
   BOOLEAN = 'boolean',
-  // CHARACTER,
+  CHARACTER = 'character',
   SYMBOL = 'symbol',
   // STRING
 };
@@ -42,7 +44,8 @@ export enum DatumVariant {
 export type Datum =
   | { variant: DatumVariant.FIXNUM, value: number }
   | { variant: DatumVariant.BOOLEAN, value: boolean }
-  | { variant: DatumVariant.SYMBOL, value: string };
+  | { variant: DatumVariant.SYMBOL, value: string }
+  | { variant: DatumVariant.CHARACTER, value: string };
 
 /**
  * A Scheme reader macro as defined by the R5RS.
@@ -82,58 +85,109 @@ export type Token = {
   );
 
 type NextTokenGeneric = Multi & {
-  (x: Tokenizer): Result<Token>;
+  (x: Tokenizer): Token;
 };
+
+const CLOSING_PAREN = /(\)|\}|\])/;
+const OPENING_PAREN = /(\(|\{|\[)/;
 
 const nextTokenGeneric: NextTokenGeneric = multi(
   (x: Tokenizer) => peek(x),
-  method("\n", (x: Tokenizer): Result<Token> => { // newline?
+  method("\n", (x: Tokenizer): Token => { // newline?
     x.current += 1;
     x.line += 1;
     return nextToken(x);
   }),
-  method(/[ \t\r]/, (x: Tokenizer): Result<Token> => { // whitespace?
+  method(/[ \t\r]/, (x: Tokenizer): Token => { // whitespace?
     x.current += 1;
     return nextToken(x);
   }),
   method("'", makeTokenCombinator(TokenVariant.READER_MACRO, ReaderMacro.QUOTE)),
   method("`", makeTokenCombinator(TokenVariant.READER_MACRO, ReaderMacro.QUASIQUOTE)),
   method(",", makeTokenCombinator(TokenVariant.READER_MACRO, ReaderMacro.UNQUOTE)), // TODO(kosinw): This might actually be unquote-splicing
-  method(/(\(|\{|\[)/, makeTokenCombinator(TokenVariant.LEFT_PAREN)),
-  method(/(\)|\}|\])/, makeTokenCombinator(TokenVariant.RIGHT_PAREN)),
+  method(OPENING_PAREN, makeTokenCombinator(TokenVariant.LEFT_PAREN)),
+  method(CLOSING_PAREN, makeTokenCombinator(TokenVariant.RIGHT_PAREN)),
   method(".", makeTokenCombinator(TokenVariant.DOT)),
   method("", makeTokenCombinator(TokenVariant.EOF, undefined, 0)),
-  method(isNumeric, (x: Tokenizer): Result<Token> => { // number?
-    return peekDatum(x)
-      .chain(
-        (datum) => {
-          const procedure = makeTokenCombinator(
-            TokenVariant.DATUM,
-            {
-              variant: DatumVariant.FIXNUM,
-              value: Number.parseInt(datum, 10)
-            },
-            datum.length
-          );
-          return procedure(x);
+  method("#", (x: Tokenizer): Token => {
+    x.current += 1;
+    // TODO(kosinw): Maybe move this to the parser and instead just emit a special
+    // hash token (in parser we construct the other thing)
+    const hashGeneric: NextTokenGeneric = multi(
+      (x: Tokenizer) => peek(x),
+      method("t", makeTokenCombinator(TokenVariant.DATUM, { variant: DatumVariant.BOOLEAN, value: true })),
+      method("f", makeTokenCombinator(TokenVariant.DATUM, { variant: DatumVariant.BOOLEAN, value: false })),
+      method("\\", (x: Tokenizer): Token => {
+        x.current += 1;
+        const literal = peek(x) + peekDatum({ ...x, current: x.current + 1 });
+        let value = literal.charAt(0);
+
+        switch (literal) {
+          case "space":
+            value = " ";
+            break;
+          case "linefeed":
+          case "newline":
+            value = "\n";
+            break;
+          case "tab":
+            value = "\t";
+            break;
+          case "return":
+            value = "\r";
+            break;
+          default:
+            // TODO(kosinw): Change this to add unicode characters + other shit ig
+            invariant(
+              literal.length === 1,
+              `Expected character literal to only be one character long. Line ${x.line}.`
+            );
+            break;
         }
-      );
+
+        const procedure = makeTokenCombinator(
+          TokenVariant.DATUM,
+          {
+            variant: DatumVariant.CHARACTER,
+            value
+          },
+          literal.length
+        );
+
+        return procedure(x);
+      }),
+      method((x: Tokenizer): Token => invariant(false, `Encountered unknown character after '#', ${peek(x)}.`))
+    );
+
+    return hashGeneric(x);
   }),
-  method((x: Tokenizer): Result<Token> => { // else, symbol?
-    return peekDatum(x)
-      .chain(
-        (datum) => {
-          const procedure = makeTokenCombinator(
-            TokenVariant.DATUM,
-            {
-              variant: DatumVariant.SYMBOL,
-              value: datum
-            },
-            datum.length
-          );
-          return procedure(x);
-        }
-      );
+  method(isNumeric, (x: Tokenizer): Token => { // number?
+    const datum = peekDatum(x);
+    const value = +datum;
+
+    invariant(!isNaN(value), `Expected a number, instead got ${datum}`);
+
+    const procedure = makeTokenCombinator(
+      TokenVariant.DATUM,
+      {
+        variant: DatumVariant.FIXNUM,
+        value: value
+      },
+      datum.length
+    );
+    return procedure(x);
+  }),
+  method((x: Tokenizer): Token => { // else, symbol?
+    const datum = peekDatum(x);
+    const procedure = makeTokenCombinator(
+      TokenVariant.DATUM,
+      {
+        variant: DatumVariant.SYMBOL,
+        value: datum
+      },
+      datum.length
+    );
+    return procedure(x);
   })
 );
 
@@ -144,7 +198,7 @@ const nextTokenGeneric: NextTokenGeneric = multi(
  * @returns (a result for) the next token in the stream if source is valid,
  *          otherwise a Result.err
  */
-export function nextToken(scanner: Tokenizer): Result<Token> {
+export function nextToken(scanner: Tokenizer): Token {
   // TODO(kosinw): Implement comments to work
   return nextTokenGeneric(scanner);
 }
@@ -165,21 +219,21 @@ type Tokenizer = {
  * @param value token value
  * @returns (a new function which) tokenizes a token based on variant and value.
  */
-function makeTokenCombinator<T = unknown>(
+function makeTokenCombinator<T>(
   variant: TokenVariant,
   value: T | undefined = undefined,
   n: number = 1
 ) {
-  return (x: Tokenizer): Result<Token> => {
+  return (x: Tokenizer): Token => {
     x.current += n;
-    // @ts-ignore
-    return Result.ok({
+    return {
       variant: variant,
+      // @ts-ignore
       value: value,
       length: n,
       start: x.current - n,
       line: x.line
-    });
+    };
   }
 }
 
@@ -210,11 +264,11 @@ function peek(t: Tokenizer): string {
  * @param t a tokenizer
  * @returns (a result for) the next datum in tokenizer internal buffer
  */
-function peekDatum(t: Tokenizer, formed: string = ''): Result<string> {
+function peekDatum(t: Tokenizer, formed: string = ''): string {
   const current = peek(t);
 
-  if (/(\s|\)|^$)/.test(current)) { // (union whitespace? right-paren? empty?)
-    return Result.ok(formed);
+  if (/(\s|^$)/.test(current) || CLOSING_PAREN.test(current)) { // (union whitespace? right-paren? empty?)
+    return formed;
   }
 
   return peekDatum({
@@ -239,7 +293,7 @@ export function makeTokenizer(source: string): Tokenizer {
 ////////////////////////////////////////////////////////
 
 export enum SyntaxTreeVariant {
-  DATUM = 'datum',
+  ATOM = 'atom',
   LIST = 'list',
   // VECTOR = 'vector
   EOF = 'eof'
@@ -250,7 +304,7 @@ export enum SyntaxTreeVariant {
  */
 export type SyntaxTree = { start: number; length: number; line: number; } &
   (
-    | { variant: SyntaxTreeVariant.DATUM, value: Datum }
+    | { variant: SyntaxTreeVariant.ATOM, value: Datum }
     | { variant: SyntaxTreeVariant.LIST, value: SyntaxTree[] }
     | { variant: SyntaxTreeVariant.EOF }
   );
@@ -298,7 +352,7 @@ function match(parser: Parser, variant: TokenVariant): boolean {
 function advance(parser: Parser): void {
   // TODO(kosinw): Add proper error handling code.
   parser.previous = parser.current;
-  parser.current = nextToken(parser.scanner).unwrap();
+  parser.current = nextToken(parser.scanner);
 }
 
 /**
@@ -308,7 +362,7 @@ function advance(parser: Parser): void {
  * @returns a new parser which fetches tokens from scanner
  */
 export function makeParser(scanner: Tokenizer): Parser {
-  const firstToken = nextToken(scanner).unwrap();
+  const firstToken = nextToken(scanner);
 
   return {
     current: firstToken,
@@ -321,13 +375,13 @@ type ExpressionGeneric = Multi & {
   (x: Parser): SyntaxTree;
 };
 
-// TODO(kosinw): Convert this to a Result<SyntaxTree>
 const expressionGeneric: ExpressionGeneric = multi(
   (x: Parser) => x.current.variant,
   method(TokenVariant.DATUM, (x: Parser): SyntaxTree => {
     assert(x.current.variant === TokenVariant.DATUM);
+
     return {
-      variant: SyntaxTreeVariant.DATUM,
+      variant: SyntaxTreeVariant.ATOM,
       value: x.current.value,
       start: x.current.start,
       length: x.current.length,
@@ -338,13 +392,13 @@ const expressionGeneric: ExpressionGeneric = multi(
     assert(x.current.variant === TokenVariant.READER_MACRO);
     const { start, value, line } = x.current;
     advance(x);
-    const subexpr = expression(x);
+    const subexpr = expressionGeneric(x);
     const extra = ReaderMacro.UNQUOTE_SPLICING === value ? 2 : 1;
     return {
       variant: SyntaxTreeVariant.LIST,
       value: [
         {
-          variant: SyntaxTreeVariant.DATUM,
+          variant: SyntaxTreeVariant.ATOM,
           value: {
             variant: DatumVariant.SYMBOL,
             value: value
@@ -368,10 +422,7 @@ const expressionGeneric: ExpressionGeneric = multi(
     advance(x);
 
     while (!check(x, TokenVariant.RIGHT_PAREN)) {
-      if (match(x, TokenVariant.EOF)) {
-        throw Error("Unexpected EOF reached!");
-      }
-
+      invariant(!match(x, TokenVariant.EOF), "Unexpected end-of-file character reached.");
       subexprs.push(expression(x));
     }
 
@@ -392,10 +443,10 @@ const expressionGeneric: ExpressionGeneric = multi(
     }
   }),
   method(TokenVariant.RIGHT_PAREN, (x: Parser): SyntaxTree => {
-    throw Error("Unexpected ')' reached!");
+    invariant(false, "Unexpected ')' chraracter reached.");
   }),
   method((x: Parser): SyntaxTree => {
-    throw Error(`Unexpected token reached, ${x.current}`);
+    invariant(false, `Unexpected token, '${x.current.variant}' reached.`);
   })
 );
 
@@ -419,11 +470,13 @@ export function expression(parser: Parser): SyntaxTree {
 
 /**
  * Represents a unit of code that is currently being compiled.
+ * One unit usually represents the current lexical scope being compiled.
  */
 type CompilationUnit = {
-  parent?: CompilationUnit;
-  chunk: flour.Chunk;
-  objectFile: flour.ObjectFile;
+  // readonly parent?: CompilationUnit;
+  readonly chunk: flour.Chunk;
+  readonly objectFile: flour.ObjectFile;
+  readonly bindings: Map<string, number>;
 };
 
 /**
@@ -433,18 +486,20 @@ type CompilationUnit = {
  * @param parent a parent compilation unit
  * @returns a new compilation unit
  */
-function makeCompilationUnit(
-  name: string,
-  objectFile: flour.ObjectFile,
-  parent?: CompilationUnit
-): CompilationUnit {
-  const chunk = flour.makeChunk(name);
-  objectFile.chunks.set(name, chunk);
+function makeUnit(name: string, objectFile: flour.ObjectFile, parent?: CompilationUnit): CompilationUnit {
+  let chunk = objectFile.chunks.get(name);
+
+  if (chunk === undefined) {
+    const [_chunk, ix] = flour.allocateChunk(objectFile, name);
+    chunk = _chunk;
+    objectFile.chunks.set(name, chunk);
+  }
 
   return {
-    parent,
+    // parent,
     chunk: chunk,
-    objectFile
+    objectFile,
+    bindings: parent?.bindings || new Map()
   };
 }
 
@@ -454,13 +509,25 @@ function makeCompilationUnit(
  * @param unit a compilation unit
  * @returns parent compilation unit
  */
-function unitEpilogue(unit: CompilationUnit): CompilationUnit | undefined {
+function unitEpilogue(unit: CompilationUnit): void {
+  // TODO(kosinw): I don't think this does proper tail call for if expressions :thonk:
+  // if (flour.hasTailCall(unit.chunk)) { flour.tailCall(unit.chunk); }
   flour.emitInstruction(unit.chunk, flour.single(FlourOpcode.RETURN));
-  return unit.parent;
 }
 
 type CompileDatumGeneric = Multi & {
   (datum: Datum, unit: CompilationUnit, line: number): void;
+};
+
+
+enum SpecialForm {
+  LET = "let",
+  IF = "if",
+  LAMBDA = "lambda",
+  BEGIN = "begin",
+  DEFINE = "define",
+  SET_BANG = "set!",
+  QUOTE = "quote"
 };
 
 const compileDatum: CompileDatumGeneric = multi(
@@ -469,7 +536,25 @@ const compileDatum: CompileDatumGeneric = multi(
     assert(datum.variant === DatumVariant.FIXNUM);
     flour.emitConstantInstruction(unit.chunk, flour.fixnum(datum.value), line);
   }),
-  method((datum: Datum, unit: CompilationUnit) => { throw Error(`Compiling unknown datum, ${datum}`) })
+  method(DatumVariant.BOOLEAN, (datum: Datum, unit: CompilationUnit, line: number) => {
+    assert(datum.variant === DatumVariant.BOOLEAN);
+    flour.emitConstantInstruction(unit.chunk, flour.boolean(datum.value), line);
+  }),
+  method(DatumVariant.SYMBOL, (datum: Datum, unit: CompilationUnit, line: number) => {
+    assert(datum.variant === DatumVariant.SYMBOL);
+    const local = flour.resolveName(unit.objectFile, datum.value);
+    flour.emitInstruction(
+      unit.chunk,
+      flour.complex(FlourOpcode.GET_VARIABLE, local, line)
+    );
+  }),
+  method(DatumVariant.CHARACTER, (datum: Datum, unit: CompilationUnit, line: number) => {
+    assert(datum.variant === DatumVariant.CHARACTER);
+    flour.emitConstantInstruction(unit.chunk, flour.character(datum.value), line);
+  }),
+  method((datum: Datum, unit: CompilationUnit) => {
+    invariant(false, `Compiling unknown datum, ${util.inspect(datum)}`);
+  })
 );
 
 type CompileExpressionGeneric = Multi & {
@@ -479,27 +564,513 @@ type CompileExpressionGeneric = Multi & {
 const compileExpressionGeneric: CompileExpressionGeneric = multi(
   (expr: SyntaxTree, unit: CompilationUnit) => expr.variant,
   method(
-    SyntaxTreeVariant.DATUM,
+    SyntaxTreeVariant.ATOM,
     (expr: SyntaxTree, unit: CompilationUnit) => {
-      assert(expr.variant === SyntaxTreeVariant.DATUM);
+      assert(expr.variant === SyntaxTreeVariant.ATOM);
       compileDatum(expr.value, unit, expr.line);
     }
   ),
+  method(isSpecialForm(SpecialForm.LET), dispatchLet),
+  method(isSpecialForm(SpecialForm.IF), dispatchConditional),
+  method(isSpecialForm(SpecialForm.LAMBDA), dispatchLambda),
+  method(isSpecialForm(SpecialForm.BEGIN), dispatchBegin),
+  method(isSpecialForm(SpecialForm.DEFINE), dispatchDefine),
+  method(isSpecialForm(SpecialForm.SET_BANG), dispatchSet),
+  method(isSpecialForm(SpecialForm.QUOTE), dispatchQuote),
+  // method(isPrimitiveCall, dispatchPrimitiveCall),
   method(
     SyntaxTreeVariant.LIST,
-    (expr: SyntaxTree, unit: CompilationUnit) => {
+    (expr: SyntaxTree, unit: CompilationUnit, line: number) => {
       assert(expr.variant === SyntaxTreeVariant.LIST);
       if (expr.value.length === 0) {
         // NOTE(kosinw): Empty list is special case, should make a nil
-        flour.emitInstruction(unit.chunk, flour.single(FlourOpcode.NIL, expr.line));
+        flour.emitConstantInstruction(unit.chunk, flour.nil(), line);
         return;
       }
-      // compileList(expr.value, unit);
-      // assume is primitive procedure call
-      compileTail(expr.value, unit);
+      // NOTE(kosinw): Handle compound procedure call
+      void compileTail(expr.value, unit);
+      const procedure = expr.value[0];
+      assert(procedure !== undefined)
+      void compileExpression(procedure, unit);
+      flour.emitInstruction(
+        unit.chunk,
+        flour.complex(FlourOpcode.CALL, expr.value.length - 1, expr.line)
+      );
     }
   )
 );
+
+type PrimitiveInstructionCompiler = {
+  arity: number;
+  call(unit: CompilationUnit, line: number): void;
+};
+
+/**
+ * Creates a procedure which given a unit and a line number emits primitive call source code.
+ * 
+ * @param opcode an opcode
+ * @param arity arity of primitive procedure
+ * @returns a new primitive instruction compiler
+ */
+function makePrimitiveCompiler(opcode: FlourOpcode, arity: number): PrimitiveInstructionCompiler {
+  return {
+    arity,
+    call: (unit: CompilationUnit, line: number) => {
+      flour.emitInstruction(unit.chunk, flour.single(opcode, line));
+    }
+  };
+}
+
+// TODO(kosinw): Improve this beyond just arity checking, but also applicability checking?
+const PRIMITIVE_PROCEDURES: Map<string, PrimitiveInstructionCompiler> = new Map([
+  ["negate", makePrimitiveCompiler(FlourOpcode.NEGATE, 1)],
+  ["not", makePrimitiveCompiler(FlourOpcode.NOT, 1)],
+  ["log", makePrimitiveCompiler(FlourOpcode.LOG, 1)],
+  ["+", makePrimitiveCompiler(FlourOpcode.ADD, 2)],
+  ["-", makePrimitiveCompiler(FlourOpcode.SUBTRACT, 2)],
+  ["*", makePrimitiveCompiler(FlourOpcode.MULTIPLY, 2)],
+  ["/", makePrimitiveCompiler(FlourOpcode.DIVIDE, 2)],
+  ["=", makePrimitiveCompiler(FlourOpcode.EQUAL, 2)],
+  ["<", makePrimitiveCompiler(FlourOpcode.LESS, 2)],
+  [">", makePrimitiveCompiler(FlourOpcode.GREATER, 2)],
+  ["expt", makePrimitiveCompiler(FlourOpcode.POW, 2)],
+  ["remainder", makePrimitiveCompiler(FlourOpcode.MOD, 2)]
+]);
+
+/**
+ * @param expr a syntax tree
+ * @param _unit a compilation unit
+ * @returns true iff expr represents a call to a primitive procedure
+ */
+function isPrimitiveCall(expr: SyntaxTree, _unit: CompilationUnit): boolean {
+  return expr.variant === SyntaxTreeVariant.LIST
+    && expr.value[0]
+    && expr.value[0].variant === SyntaxTreeVariant.ATOM
+    && expr.value[0].value.variant === DatumVariant.SYMBOL
+    && PRIMITIVE_PROCEDURES.has(expr.value[0].value.value);
+}
+
+/**
+ * Dispatches to a primitive call based on syntax tree.
+ * 
+ * @param expr a syntax tree
+ * @param unit a compilation unit
+ */
+function dispatchPrimitiveCall(expr: SyntaxTree, unit: CompilationUnit): void {
+  assert(expr.variant === SyntaxTreeVariant.LIST
+    && expr.value[0]
+    && expr.value[0].variant === SyntaxTreeVariant.ATOM
+    && expr.value[0].value.variant === DatumVariant.SYMBOL);
+
+  const name = expr.value[0].value.value;
+
+  const compiler = PRIMITIVE_PROCEDURES.get(name);
+  assert(compiler);
+
+  invariant(
+    expr.value.length - 1 === compiler.arity,
+    `Procedure '${name}' called with the wrong number of arguments, expected ${compiler.arity}, instead got ${expr.value.length - 1}`
+  );
+
+  compileTail(expr.value, unit);
+  compiler.call(unit, expr.line);
+}
+
+
+/**
+ * @param form name of special form
+ * @returns a predicate function which takes (expr, unit) which checks if syntax tree
+ */
+function isSpecialForm(form: SpecialForm) {
+  return function (expr: SyntaxTree, _unit: CompilationUnit): boolean {
+    return expr.variant === SyntaxTreeVariant.LIST
+      && expr.value[0]
+      && expr.value[0].variant === SyntaxTreeVariant.ATOM
+      && expr.value[0].value.variant === DatumVariant.SYMBOL
+      && expr.value[0].value.value === form;
+  }
+}
+
+type LetBinding = {
+  name: string;
+  expr: SyntaxTree;
+  line: number;
+};
+
+/**
+ * Dispatches to a variable binding expression based on syntax tree.
+ * 
+ * @param expr a syntax tree
+ * @param unit a compilation unit
+ */
+function dispatchLet(expr: SyntaxTree, unit: CompilationUnit): void {
+  assert(
+    expr.variant === SyntaxTreeVariant.LIST
+    && expr.value[0]
+    && expr.value[0].variant === SyntaxTreeVariant.ATOM
+    && expr.value[0].value.variant === DatumVariant.SYMBOL
+    && expr.value[0].value.value === SpecialForm.LET
+  );
+
+  const bindingList = expr.value[1];
+
+  invariant(
+    bindingList &&
+    bindingList.variant === SyntaxTreeVariant.LIST,
+    `Expected ${util.inspect(bindingList)} to be a proper list. Line ${expr.line}.`
+  );
+
+  const bindings = (): LetBinding[] => bindingList
+    .value
+    .map((t): LetBinding => {
+      invariant(
+        t.variant === SyntaxTreeVariant.LIST,
+        `Expected ${util.inspect(t)} to be a proper list. Line ${t.line}.`
+      );
+
+      invariant(
+        t.value[0].variant === SyntaxTreeVariant.ATOM &&
+        t.value[0].value.variant === DatumVariant.SYMBOL,
+        `Expected ${util.inspect(t.value[0])} to be a symbol. Line ${t.line}.`
+      );
+
+      return {
+        name: t.value[0]?.value.value,
+        expr: t.value[1],
+        line: t.value[0]?.line
+      };
+    });
+
+  /// TODO(kosinw): Add proper closures by making this a call instruction.
+  const letBindings = bindings();
+
+  letBindings.slice().reverse().forEach(binding => {
+    void compileExpression(binding.expr, unit);
+  });
+
+  const [nextChunk, ix] = flour.allocateChunk(unit.objectFile);
+
+  flour.emitInstruction(
+    unit.chunk,
+    flour.complex(FlourOpcode.CLOSURE, ix, expr.line)
+  );
+
+  flour.emitInstruction(
+    unit.chunk,
+    flour.complex(FlourOpcode.CALL, letBindings.length, expr.line)
+  );
+
+  letBindings.forEach(binding => {
+    const local = flour.resolveName(unit.objectFile, binding.name);
+    flour.emitInstruction(
+      nextChunk,
+      flour.complex(FlourOpcode.DEFINE_VARIABLE, local, binding.line)
+    );
+  });
+
+  const subexpr = expr.value.slice(2);
+
+  invariant(
+    subexpr.length > 0,
+    `Expected ${util.inspect(subexpr)} to be a sequence of expressions. Line ${expr.line}.`
+  );
+
+  void compileSequence(subexpr, {
+    chunk: nextChunk,
+    objectFile: unit.objectFile,
+    bindings: unit.bindings
+  });
+
+  flour.emitInstruction(
+    nextChunk,
+    flour.single(FlourOpcode.RETURN)
+  );
+}
+
+/**
+ * Dispatches to a quoted expression based on syntax tree.
+ * 
+ * @param expr a syntax tree
+ * @param unit a compilation unit
+ */
+function dispatchQuote(expr: SyntaxTree, unit: CompilationUnit): void {
+  assert(
+    expr.variant === SyntaxTreeVariant.LIST
+    && expr.value[0]
+    && expr.value[0].variant === SyntaxTreeVariant.ATOM
+    && expr.value[0].value.variant === DatumVariant.SYMBOL
+    && expr.value[0].value.value === SpecialForm.QUOTE
+  );
+
+  // TODO(kosinw): Add quotes with lists (not sure how this works?)
+  const subexpr = expr.value[1];
+
+  invariant(
+    subexpr.variant === SyntaxTreeVariant.ATOM,
+    `Expected quoted expression to be an atom. Line ${expr.line}.`
+  );
+
+  switch (subexpr.value.variant) {
+    case DatumVariant.SYMBOL:
+      flour.emitInstruction(
+        unit.chunk,
+        flour.complex(
+          FlourOpcode.CONSTANT,
+          flour.makeData(unit.chunk, {
+            variant: flour.BoxedValueVariant.SYMBOL,
+            value: subexpr.value.value
+          })
+        )
+      );
+      break;
+    default:
+      compileDatum(subexpr.value, unit, subexpr.line);
+      break;
+  }
+}
+
+/**
+ * Dispatches to a single variable binding expression based on syntax tree.
+ * 
+ * @param expr a syntax tree
+ * @param unit a compilation unit
+ */
+function dispatchDefine(expr: SyntaxTree, unit: CompilationUnit): void {
+  assert(
+    expr.variant === SyntaxTreeVariant.LIST
+    && expr.value[0]
+    && expr.value[0].variant === SyntaxTreeVariant.ATOM
+    && expr.value[0].value.variant === DatumVariant.SYMBOL
+    && expr.value[0].value.value === SpecialForm.DEFINE
+  );
+
+  const variable = expr.value[1];
+  const subexpr = expr.value[2];
+
+  invariant(
+    variable !== undefined &&
+    variable.variant === SyntaxTreeVariant.ATOM &&
+    variable.value.variant === DatumVariant.SYMBOL,
+    `Expected ${util.inspect(variable)} to be a symbol. Line ${variable.line}.`
+  );
+
+  invariant(
+    subexpr !== undefined,
+    `Expected ${util.inspect(subexpr)} to be an expression. Line ${subexpr.line}.`
+  );
+
+  void compileExpression(subexpr, unit);
+
+  const local = flour.resolveName(unit.objectFile, variable.value.value);
+
+  flour.emitInstruction(
+    unit.chunk,
+    flour.complex(
+      FlourOpcode.DEFINE_VARIABLE,
+      local,
+      expr.line
+    )
+  );
+
+  flour.emitInstruction(
+    unit.chunk,
+    flour.complex(
+      FlourOpcode.GET_VARIABLE,
+      local,
+      expr.line
+    )
+  );
+}
+
+/**
+ * Dispatches to a single variable mutation expression based on syntax tree.
+ * 
+ * @param expr a syntax tree
+ * @param unit a compilation unit
+ */
+function dispatchSet(expr: SyntaxTree, unit: CompilationUnit): void {
+  assert(
+    expr.variant === SyntaxTreeVariant.LIST
+    && expr.value[0]
+    && expr.value[0].variant === SyntaxTreeVariant.ATOM
+    && expr.value[0].value.variant === DatumVariant.SYMBOL
+    && expr.value[0].value.value === SpecialForm.SET_BANG
+  );
+
+  const variable = expr.value[1];
+  const subexpr = expr.value[2];
+
+  invariant(
+    variable !== undefined &&
+    variable.variant === SyntaxTreeVariant.ATOM &&
+    variable.value.variant === DatumVariant.SYMBOL,
+    `Expected ${util.inspect(variable)} to be a symbol. Line ${variable.line}.`
+  );
+
+  invariant(
+    subexpr !== undefined,
+    `Expected ${util.inspect(subexpr)} to be an expression. Line ${subexpr.line}.`
+  );
+
+  void compileExpression(subexpr, unit);
+
+  const local = flour.resolveName(unit.objectFile, variable.value.value);
+
+  flour.emitInstruction(
+    unit.chunk,
+    flour.complex(
+      FlourOpcode.SET_VARIABLE,
+      local,
+      expr.line
+    )
+  );
+
+  flour.emitInstruction(
+    unit.chunk,
+    flour.complex(
+      FlourOpcode.GET_VARIABLE,
+      local,
+      expr.line
+    )
+  );
+}
+
+/**
+ * Dispatches to a conditional expression based on syntax tree.
+ * 
+ * @param expr a syntax tree
+ * @param unit a compilation unit
+ */
+function dispatchConditional(expr: SyntaxTree, unit: CompilationUnit): void {
+  assert(
+    expr.variant === SyntaxTreeVariant.LIST
+    && expr.value[0]
+    && expr.value[0].variant === SyntaxTreeVariant.ATOM
+    && expr.value[0].value.variant === DatumVariant.SYMBOL
+    && expr.value[0].value.value === SpecialForm.IF
+  );
+
+  const test = expr.value[1];
+
+  invariant(
+    test !== undefined,
+    `Expected ${util.inspect(test)} to be an expression. Line ${expr.line}.`
+  );
+
+  void compileExpression(test, unit);
+
+  let jump = flour.emitInstruction(
+    unit.chunk,
+    flour.complex(FlourOpcode.JUMP_IF_FALSE, 0xffffffff, test.line)
+  );
+
+  const consequence = expr.value[2];
+
+  invariant(
+    test !== undefined,
+    `Expected ${util.inspect(test)} to be an expression. Line ${test.line}.`
+  );
+
+  void compileExpression(consequence, unit);
+
+  const alternative = expr.value[3];
+
+  if (alternative !== undefined) {
+    const prevJump = jump;
+
+    jump = flour.emitInstruction(
+      unit.chunk,
+      flour.complex(FlourOpcode.JUMP, 0xffffffff, consequence.line)
+    );
+
+    flour.patchForwardJump(unit.chunk, prevJump);
+
+    void compileExpression(alternative, unit);
+  }
+
+  // TODO(kosinw): This jump definitely does not work
+  flour.patchForwardJump(unit.chunk, jump);
+}
+
+/**
+ * Dispatches to a lambda expression based on syntax tree.
+ * 
+ * @param expr a syntax tree
+ * @param unit a compilation unit
+ */
+function dispatchLambda(expr: SyntaxTree, unit: CompilationUnit): void {
+  assert(
+    expr.variant === SyntaxTreeVariant.LIST
+    && expr.value[0]
+    && expr.value[0].variant === SyntaxTreeVariant.ATOM
+    && expr.value[0].value.variant === DatumVariant.SYMBOL
+    && expr.value[0].value.value === SpecialForm.LAMBDA
+  );
+
+  const parameterList = expr.value[1];
+  const body = expr.value.slice(2);
+
+  // TOOD(kosinw): Add support for variadic procedures
+  invariant(
+    parameterList !== undefined &&
+    parameterList.variant === SyntaxTreeVariant.LIST,
+    `Expected ${util.inspect(parameterList)} to be a list of parameters. Line ${expr.line}.`
+  );
+
+  invariant(
+    body.length > 0,
+    `Expected ${util.inspect(body)} to be a list of parameters. Line ${expr.line}.`
+  );
+
+  const [chunk, ix] = flour.allocateChunk(unit.objectFile);
+  const nextUnit: CompilationUnit = { bindings: unit.bindings, chunk, objectFile: unit.objectFile };
+
+  parameterList.value.reverse().forEach(parameter => {
+    invariant(
+      parameter.variant === SyntaxTreeVariant.ATOM &&
+      parameter.value.variant === DatumVariant.SYMBOL,
+      `Expected ${util.inspect(parameter)} to be a symbol. Line ${expr.line}.`
+    );
+
+    flour.emitInstruction(
+      chunk,
+      flour.complex(
+        FlourOpcode.DEFINE_VARIABLE,
+        flour.resolveName(unit.objectFile, parameter.value.value)
+      )
+    );
+  });
+
+  void compileSequence(body, nextUnit);
+  void unitEpilogue(nextUnit);
+
+  flour.emitInstruction(
+    unit.chunk,
+    flour.complex(
+      FlourOpcode.CLOSURE,
+      ix,
+      expr.line
+    )
+  );
+}
+
+/**
+ * Dispatches to a begin expression based on syntax tree.
+ * 
+ * @param expr a syntax tree
+ * @param unit a compilation unit
+ */
+function dispatchBegin(expr: SyntaxTree, unit: CompilationUnit): void {
+  assert(
+    expr.variant === SyntaxTreeVariant.LIST
+    && expr.value[0]
+    && expr.value[0].variant === SyntaxTreeVariant.ATOM
+    && expr.value[0].value.variant === DatumVariant.SYMBOL
+    && expr.value[0].value.value === SpecialForm.BEGIN
+  );
+
+  void compileSequence(expr.value.slice(1), unit);
+}
 
 /**
  * Emits bytecode corresponding to code in expression.
@@ -512,13 +1083,36 @@ function compileExpression(expr: SyntaxTree, unit: CompilationUnit): void {
 }
 
 /**
+ * Emits bytecode corresponding to code in sequence of expressions.
+ * 
+ * @param expr a sequence of abstract syntax tree
+ * @param unit a compilation unit
+ */
+function compileSequence(expr: SyntaxTree[], unit: CompilationUnit): void {
+  invariant(
+    expr.length > 0,
+    `Expected ${util.inspect(expr)} to be a sequence of expressions.`
+  );
+
+  expr.slice(0, -1).forEach(subexpr => {
+    void compileExpression(subexpr, unit);
+    flour.emitInstruction(unit.chunk, flour.single(FlourOpcode.POP, subexpr.line));
+  });
+
+  const last = expr.at(-1);
+  assert(last !== undefined);
+
+  void compileExpression(last, unit);
+}
+
+/**
  * Compiles the tail of an array of syntax trees (i.e. compile all but the first).
  * 
  * @param expr a list of abstract syntax trees
  * @param unit a compilation unit
  */
 function compileTail(expr: SyntaxTree[], unit: CompilationUnit): void {
-  expr.slice(1).forEach(expr => compileExpression(expr, unit));
+  expr.slice(1).forEach(expr => void compileExpression(expr, unit));
 }
 
 /**
@@ -531,7 +1125,8 @@ export function compile(source: string): flour.ObjectFile {
   const scanner = makeTokenizer(source);
   const parser = makeParser(scanner);
   const object = flour.makeObjectFile();
-  const unit = makeCompilationUnit("<top>", object);
+
+  const unit = makeUnit("*module*", object);
 
   while (!match(parser, TokenVariant.EOF)) {
     const syntaxTree = expression(parser);
@@ -539,5 +1134,6 @@ export function compile(source: string): flour.ObjectFile {
   }
 
   void unitEpilogue(unit);
+
   return object;
 }

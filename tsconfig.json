@@ -3,6 +3,9 @@
     "./src/**/*.ts",
     "./test/**/*.ts",
   ],
+  "exclude": [
+    "./src/dango/**/*.ts"
+  ],
   "compilerOptions": {
     "strict": true,
     "noImplicitReturns": true,

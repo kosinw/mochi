@@ -36,7 +36,14 @@ describe('compiler tests', function () {
   });
 
   it('covers compiling a unary primitive call', function () {
-    const sourceCode = '(* 0001 42 993 44444 885 26 1237)';
+    const sourceCode = '(* 0001 42 993 44444\n885\n26 1237)';
+    const object = ricecakes.compile(sourceCode);
+
+    // console.log(flour.disassemble(object));
+  });
+
+  it('covers consing up a one element list', function () {
+    const sourceCode = '(cons 1 ())';
     const object = ricecakes.compile(sourceCode);
 
     console.log(flour.disassemble(object));
@@ -120,8 +127,8 @@ describe('lexer tests', function () {
     const scanner = ricecakes.makeTokenizer(sourceCode);
     const token = ricecakes.nextToken(scanner);
 
-    assert.strictEqual(token.unwrap().variant, ricecakes.TokenVariant.DATUM);
-    assert.strictEqual(ricecakes.nextToken(scanner).unwrap().variant, ricecakes.TokenVariant.EOF);
+    assert.strictEqual(token.variant, ricecakes.TokenVariant.DATUM);
+    assert.strictEqual(ricecakes.nextToken(scanner).variant, ricecakes.TokenVariant.EOF);
   });
 
   it('covers tokenizing a symbol', function () {
@@ -129,40 +136,40 @@ describe('lexer tests', function () {
     const scanner = ricecakes.makeTokenizer(sourceCode);
     const token = ricecakes.nextToken(scanner);
 
-    assert.strictEqual(token.unwrap().variant, ricecakes.TokenVariant.DATUM);
-    assert.strictEqual(ricecakes.nextToken(scanner).unwrap().variant, ricecakes.TokenVariant.EOF);
+    assert.strictEqual(token.variant, ricecakes.TokenVariant.DATUM);
+    assert.strictEqual(ricecakes.nextToken(scanner).variant, ricecakes.TokenVariant.EOF);
   });
 
   it('covers tokenizing a list', function () {
     const sourceCode = `(foo bar)`;
     const scanner = ricecakes.makeTokenizer(sourceCode);
 
-    assert.strictEqual(ricecakes.nextToken(scanner).unwrap().variant, ricecakes.TokenVariant.LEFT_PAREN);
-    assert.strictEqual(ricecakes.nextToken(scanner).unwrap().variant, ricecakes.TokenVariant.DATUM);
-    assert.strictEqual(ricecakes.nextToken(scanner).unwrap().variant, ricecakes.TokenVariant.DATUM);
-    assert.strictEqual(ricecakes.nextToken(scanner).unwrap().variant, ricecakes.TokenVariant.RIGHT_PAREN);
-    assert.strictEqual(ricecakes.nextToken(scanner).unwrap().variant, ricecakes.TokenVariant.EOF);
+    assert.strictEqual(ricecakes.nextToken(scanner).variant, ricecakes.TokenVariant.LEFT_PAREN);
+    assert.strictEqual(ricecakes.nextToken(scanner).variant, ricecakes.TokenVariant.DATUM);
+    assert.strictEqual(ricecakes.nextToken(scanner).variant, ricecakes.TokenVariant.DATUM);
+    assert.strictEqual(ricecakes.nextToken(scanner).variant, ricecakes.TokenVariant.RIGHT_PAREN);
+    assert.strictEqual(ricecakes.nextToken(scanner).variant, ricecakes.TokenVariant.EOF);
   });
 
   it('covers tokenizing a dotted pair', function () {
     const sourceCode = "(foo . bar)";
     const scanner = ricecakes.makeTokenizer(sourceCode);
 
-    assert.strictEqual(ricecakes.nextToken(scanner).unwrap().variant, ricecakes.TokenVariant.LEFT_PAREN);
-    assert.strictEqual(ricecakes.nextToken(scanner).unwrap().variant, ricecakes.TokenVariant.DATUM);
-    assert.strictEqual(ricecakes.nextToken(scanner).unwrap().variant, ricecakes.TokenVariant.DOT);
-    assert.strictEqual(ricecakes.nextToken(scanner).unwrap().variant, ricecakes.TokenVariant.DATUM);
-    assert.strictEqual(ricecakes.nextToken(scanner).unwrap().variant, ricecakes.TokenVariant.RIGHT_PAREN);
-    assert.strictEqual(ricecakes.nextToken(scanner).unwrap().variant, ricecakes.TokenVariant.EOF);
+    assert.strictEqual(ricecakes.nextToken(scanner).variant, ricecakes.TokenVariant.LEFT_PAREN);
+    assert.strictEqual(ricecakes.nextToken(scanner).variant, ricecakes.TokenVariant.DATUM);
+    assert.strictEqual(ricecakes.nextToken(scanner).variant, ricecakes.TokenVariant.DOT);
+    assert.strictEqual(ricecakes.nextToken(scanner).variant, ricecakes.TokenVariant.DATUM);
+    assert.strictEqual(ricecakes.nextToken(scanner).variant, ricecakes.TokenVariant.RIGHT_PAREN);
+    assert.strictEqual(ricecakes.nextToken(scanner).variant, ricecakes.TokenVariant.EOF);
   });
 
   it('covers tokenizing a split line', function () {
     const sourceCode = "foo\nbar\nbaz";
     const scanner = ricecakes.makeTokenizer(sourceCode);
 
-    assert.strictEqual(ricecakes.nextToken(scanner).unwrap().variant, ricecakes.TokenVariant.DATUM);
-    assert.strictEqual(ricecakes.nextToken(scanner).unwrap().variant, ricecakes.TokenVariant.DATUM);
-    assert.strictEqual(ricecakes.nextToken(scanner).unwrap().variant, ricecakes.TokenVariant.DATUM);
-    assert.strictEqual(ricecakes.nextToken(scanner).unwrap().variant, ricecakes.TokenVariant.EOF);
+    assert.strictEqual(ricecakes.nextToken(scanner).variant, ricecakes.TokenVariant.DATUM);
+    assert.strictEqual(ricecakes.nextToken(scanner).variant, ricecakes.TokenVariant.DATUM);
+    assert.strictEqual(ricecakes.nextToken(scanner).variant, ricecakes.TokenVariant.DATUM);
+    assert.strictEqual(ricecakes.nextToken(scanner).variant, ricecakes.TokenVariant.EOF);
   });
 });
