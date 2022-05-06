@@ -1,5 +1,6 @@
 const MAX_PROGRAM_MEMORY = 1024*1024*16
-import {FlourOpcode} from "../../flour/opcode"
+import {FlourOpcode, UnboxedValueVariant as FlourUnboxedTypeCode} from "../../flour"
+
 const UNBOXED_BYTE_LENGTH = 8;
 const UNBOXED_TYPE_LENGTH = 1;
 const UNBOXED_DATA_LENGTH = 4;
@@ -11,10 +12,6 @@ const INSTRUCTION_DATA_LENGTH = 4;
 
 let vm: DangoVM;
 
-enum FlourUnboxedTypeCode {
-  FIXNUM,
-  BOOLEAN
-}
 
 export function initVM(programBuffer: Uint8Array):void{
   vm = new DangoVM(programBuffer)
