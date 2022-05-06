@@ -71,13 +71,16 @@ type SerializeConstantGeneric = Multi & {
 class ChunkConstantSection implements BinarySection {
   private readonly constants: flour.UnboxedValue[];
   private readonly offset: number;
+  private readonly offsetTable: number[];
 
   public constructor(
     offset: number,
-    constants: flour.UnboxedValue[]
+    constants: flour.UnboxedValue[],
+    offsetTable: number[]
   ) {
     this.offset = offset;
     this.constants = constants;
+    this.offsetTable = offsetTable;
   }
 
   public get encoding(): string {
@@ -125,7 +128,7 @@ class ChunkConstantSection implements BinarySection {
           assert(x.variant === flour.UnboxedValueVariant.PTR);
           return struct.pack(">BIxxx", [
             x.variant,
-            x.value + ptrOffset
+            this.offsetTable[x.value] + ptrOffset
           ]);
         }),
     );
@@ -142,8 +145,31 @@ class ChunkConstantSection implements BinarySection {
 }
 
 type SerializeBoxedGeneric = Multi & {
-  (x: flour.BoxedValue, dataStart: number): Buffer;
+  (x: flour.BoxedValue): Buffer;
 };
+
+// Calculates next highest power of 2.
+function nextPowerOf2(v: number) {
+  let p: number = 2;
+  while (v >>= 1) {
+    p <<= 1;
+  }
+  return p;
+}
+
+// TODO(kosinw): How do we deal with pair pointers without knowing
+// offset?
+const serializeBoxed: SerializeBoxedGeneric = multi(
+  (x: flour.BoxedValue) => x.variant,
+  method(flour.BoxedValueVariant.SYMBOL, (x: flour.BoxedValue) => {
+    assert(x.variant === flour.BoxedValueVariant.SYMBOL);
+    const strlen = nextPowerOf2(x.value.length + 1 + 1);
+    return struct.pack(`>B${strlen - 1}s`, [
+      x.variant,
+      x.value
+    ])
+  })
+);
 
 class ChunkDataSection implements BinarySection {
   public constructor(
@@ -153,21 +179,6 @@ class ChunkDataSection implements BinarySection {
   }
 
   public serialize(): Buffer {
-    const serializeBoxedGeneric: SerializeBoxedGeneric = multi(
-      (x: flour.BoxedValue, offset: number) => x.variant,
-      method(flour.BoxedValueVariant.SYMBOL, (x: flour.BoxedValue, offset: number) => {
-        assert(x.variant === flour.BoxedValueVariant.SYMBOL);
-        return struct.pack(`>BI${x.value.length}s`, [
-          x.variant,
-          x.value.length,
-          x.value
-        ])
-      })
-    );
-
-    const serializeBoxed = (boxed: flour.BoxedValue): Buffer =>
-      serializeBoxedGeneric(boxed, this.dataStart);
-
     const result = Buffer.concat(this.data.map(serializeBoxed));
     return result;
   }
@@ -192,9 +203,22 @@ class ChunkInstructionSection implements BinarySection {
   }
 }
 
+function generateOffsetTable(boxedValues: flour.BoxedValue[]): number[] {
+  let cursor = 0;
+  const result: number[] = [];
+
+  for (const value of boxedValues) {
+    result.push(cursor);
+    cursor += serializeBoxed(value).byteLength;
+  }
+
+  return result;
+}
+
 function serializeChunk(chunk: flour.Chunk, offset: number): Buffer {
-  const constantSection = new ChunkConstantSection(offset, chunk.constants).serialize();
   const headerLength = 16;
+  const dataOffsetTable = generateOffsetTable(chunk.data);
+  const constantSection = new ChunkConstantSection(offset + headerLength, chunk.constants, dataOffsetTable).serialize();
   const dataStart = headerLength + constantSection.byteLength + offset;
   const dataSection = new ChunkDataSection(dataStart, chunk.data).serialize();
   const instructionStart = dataStart + dataSection.byteLength;
