@@ -22,7 +22,8 @@ import assert from "assert";
 import invariant from "invariant";
 import { Multi, multi, method } from "@arrows/multimethod";
 import * as flour from "@module/flour";
-import { FlourOpcode } from "@module/flour";
+import { FlourOpcode, FlourPrimitiveMethodCodes, primitiveBindings } from "@module/flour";
+import exp from "constants";
 
 ////////////////////////////////////////////////////////
 //
@@ -242,7 +243,8 @@ function makeTokenCombinator<T>(
  * @returns true iff a character is numeric
  */
 function isNumeric(t: Tokenizer): boolean {
-  return !Number.isNaN(+peek(t));
+  const isNegative = (peek(t) === "-") && !Number.isNaN(+peek({ ...t, current: t.current + 1 }));
+  return isNegative || !Number.isNaN(+peek(t));
 }
 
 /**
@@ -468,23 +470,19 @@ export function expression(parser: Parser): SyntaxTree {
 
 /**
  * Represents a unit of code that is currently being compiled.
- * One unit usually represents the current lexical scope being compiled.
  */
 type CompilationUnit = {
-  // readonly parent?: CompilationUnit;
   readonly chunk: flour.Chunk;
   readonly objectFile: flour.ObjectFile;
-  readonly bindings: Map<string, number>;
 };
 
 /**
  * Constructs a new compilation unit, individual units are made for each procedure.
  * 
  * @param objectFile a flour object file
- * @param parent a parent compilation unit
  * @returns a new compilation unit
  */
-function makeUnit(name: string, objectFile: flour.ObjectFile, parent?: CompilationUnit): CompilationUnit {
+function makeUnit(name: string, objectFile: flour.ObjectFile): CompilationUnit {
   let chunk = objectFile.chunks.get(name);
 
   if (chunk === undefined) {
@@ -494,10 +492,8 @@ function makeUnit(name: string, objectFile: flour.ObjectFile, parent?: Compilati
   }
 
   return {
-    // parent,
     chunk: chunk,
-    objectFile,
-    bindings: parent?.bindings || new Map()
+    objectFile
   };
 }
 
@@ -525,7 +521,9 @@ enum SpecialForm {
   BEGIN = "begin",
   DEFINE = "define",
   SET_BANG = "set!",
-  QUOTE = "quote"
+  QUOTE = "quote",
+  AND = "and",
+  OR = "or"
 };
 
 const compileDatum: CompileDatumGeneric = multi(
@@ -575,7 +573,8 @@ const compileExpressionGeneric: CompileExpressionGeneric = multi(
   method(isSpecialForm(SpecialForm.DEFINE), dispatchDefine),
   method(isSpecialForm(SpecialForm.SET_BANG), dispatchSet),
   method(isSpecialForm(SpecialForm.QUOTE), dispatchQuote),
-  // method(isPrimitiveCall, dispatchPrimitiveCall),
+  method(isSpecialForm(SpecialForm.AND), dispatchAnd),
+  method(isSpecialForm(SpecialForm.OR), dispatchOr),
   method(
     SyntaxTreeVariant.LIST,
     (expr: SyntaxTree, unit: CompilationUnit, line: number) => {
@@ -597,82 +596,6 @@ const compileExpressionGeneric: CompileExpressionGeneric = multi(
     }
   )
 );
-
-type PrimitiveInstructionCompiler = {
-  arity: number;
-  call(unit: CompilationUnit, line: number): void;
-};
-
-/**
- * Creates a procedure which given a unit and a line number emits primitive call source code.
- * 
- * @param opcode an opcode
- * @param arity arity of primitive procedure
- * @returns a new primitive instruction compiler
- */
-function makePrimitiveCompiler(opcode: FlourOpcode, arity: number): PrimitiveInstructionCompiler {
-  return {
-    arity,
-    call: (unit: CompilationUnit, line: number) => {
-      flour.emitInstruction(unit.chunk, flour.single(opcode, line));
-    }
-  };
-}
-
-// const PRIMITIVE_PROCEDURES: Map<string, PrimitiveInstructionCompiler> = new Map([
-//   ["negate", makePrimitiveCompiler(FlourOpcode.NEGATE, 1)],
-//   ["not", makePrimitiveCompiler(FlourOpcode.NOT, 1)],
-//   ["log", makePrimitiveCompiler(FlourOpcode.LOG, 1)],
-//   ["+", makePrimitiveCompiler(FlourOpcode.ADD, 2)],
-//   ["-", makePrimitiveCompiler(FlourOpcode.SUBTRACT, 2)],
-//   ["*", makePrimitiveCompiler(FlourOpcode.MULTIPLY, 2)],
-//   ["/", makePrimitiveCompiler(FlourOpcode.DIVIDE, 2)],
-//   ["=", makePrimitiveCompiler(FlourOpcode.EQUAL, 2)],
-//   ["<", makePrimitiveCompiler(FlourOpcode.LESS, 2)],
-//   [">", makePrimitiveCompiler(FlourOpcode.GREATER, 2)],
-//   ["expt", makePrimitiveCompiler(FlourOpcode.POW, 2)],
-//   ["remainder", makePrimitiveCompiler(FlourOpcode.MOD, 2)]
-// ]);
-
-// /**
-//  * @param expr a syntax tree
-//  * @param _unit a compilation unit
-//  * @returns true iff expr represents a call to a primitive procedure
-//  */
-// function isPrimitiveCall(expr: SyntaxTree, _unit: CompilationUnit): boolean {
-//   return expr.variant === SyntaxTreeVariant.LIST
-//     && expr.value[0]
-//     && expr.value[0].variant === SyntaxTreeVariant.ATOM
-//     && expr.value[0].value.variant === DatumVariant.SYMBOL
-//     && PRIMITIVE_PROCEDURES.has(expr.value[0].value.value);
-// }
-
-// /**
-//  * Dispatches to a primitive call based on syntax tree.
-//  * 
-//  * @param expr a syntax tree
-//  * @param unit a compilation unit
-//  */
-// function dispatchPrimitiveCall(expr: SyntaxTree, unit: CompilationUnit): void {
-//   assert(expr.variant === SyntaxTreeVariant.LIST
-//     && expr.value[0]
-//     && expr.value[0].variant === SyntaxTreeVariant.ATOM
-//     && expr.value[0].value.variant === DatumVariant.SYMBOL);
-
-//   const name = expr.value[0].value.value;
-
-//   const compiler = PRIMITIVE_PROCEDURES.get(name);
-//   assert(compiler);
-
-//   invariant(
-//     expr.value.length - 1 === compiler.arity,
-//     `Procedure '${name}' called with the wrong number of arguments, expected ${compiler.arity}, instead got ${expr.value.length - 1}`
-//   );
-
-//   compileTail(expr.value, unit);
-//   compiler.call(unit, expr.line);
-// }
-
 
 /**
  * @param form name of special form
@@ -773,8 +696,7 @@ function dispatchLet(expr: SyntaxTree, unit: CompilationUnit): void {
 
   void compileSequence(subexpr, {
     chunk: nextChunk,
-    objectFile: unit.objectFile,
-    bindings: unit.bindings
+    objectFile: unit.objectFile
   });
 
   flour.emitInstruction(
@@ -987,6 +909,88 @@ function dispatchConditional(expr: SyntaxTree, unit: CompilationUnit): void {
   flour.patchForwardJump(unit.chunk, jump);
 }
 
+function dispatchAnd(expr: SyntaxTree, unit: CompilationUnit): void {
+  assert(
+    expr.variant === SyntaxTreeVariant.LIST
+    && expr.value[0]
+    && expr.value[0].variant === SyntaxTreeVariant.ATOM
+    && expr.value[0].value.variant === DatumVariant.SYMBOL
+    && expr.value[0].value.value === SpecialForm.AND
+  );
+
+  void compileExpression(
+    transformConjunction(expr.value.slice(1), true, expr.start, expr.length, expr.line),
+    unit
+  );
+}
+
+function dispatchOr(expr: SyntaxTree, unit: CompilationUnit): void {
+  assert(
+    expr.variant === SyntaxTreeVariant.LIST
+    && expr.value[0]
+    && expr.value[0].variant === SyntaxTreeVariant.ATOM
+    && expr.value[0].value.variant === DatumVariant.SYMBOL
+    && expr.value[0].value.value === SpecialForm.OR
+  );
+
+  void compileExpression(
+    transformConjunction(expr.value.slice(1), false, expr.start, expr.length, expr.line),
+    unit
+  );
+}
+
+/**
+ * Transforms a conjunctional expression into a tree of conditional expressions.
+ * 
+ * @param expr a syntax tree
+ */
+function transformConjunction(expr: SyntaxTree[], and: boolean, start: number, length: number, line: number): SyntaxTree {
+  if (expr.length === 0) {
+    return {
+      variant: SyntaxTreeVariant.ATOM,
+      value: { variant: DatumVariant.BOOLEAN, value: and },
+      start: start,
+      length: length,
+      line: line
+    };
+  } else if (expr.length === 1) {
+    return expr[0];
+  }
+
+  const test = expr[0];
+
+  assert(test !== undefined);
+
+  const failExpr: SyntaxTree =  {
+    variant: SyntaxTreeVariant.ATOM,
+    value: { variant: DatumVariant.BOOLEAN, value: !and },
+    length: test.length,
+    line: test.line,
+    start: test.start
+  };
+
+  const continueExpr: SyntaxTree = transformConjunction(expr.slice(1), and, start, length, line);
+
+  return {
+    variant: SyntaxTreeVariant.LIST,
+    value: [
+      {
+        variant: SyntaxTreeVariant.ATOM,
+        value: { variant: DatumVariant.SYMBOL, value: "if" },
+        length: test.length,
+        line: test.line,
+        start: test.start
+      },
+      test,
+      and ? continueExpr : test,
+      and ? failExpr : continueExpr
+    ],
+    start: start,
+    length: length,
+    line: line
+  };
+}
+
 /**
  * Dispatches to a lambda expression based on syntax tree.
  * 
@@ -1018,7 +1022,7 @@ function dispatchLambda(expr: SyntaxTree, unit: CompilationUnit): void {
   );
 
   const [chunk, ix] = flour.allocateChunk(unit.objectFile);
-  const nextUnit: CompilationUnit = { bindings: unit.bindings, chunk, objectFile: unit.objectFile };
+  const nextUnit: CompilationUnit = { chunk, objectFile: unit.objectFile };
 
   parameterList.value.reverse().forEach(parameter => {
     invariant(
@@ -1041,7 +1045,7 @@ function dispatchLambda(expr: SyntaxTree, unit: CompilationUnit): void {
 
   flour.emitInstruction(
     unit.chunk,
-    flour.closure(parameterList.length, ix, expr.line)
+    flour.closure(parameterList.value.length, ix, expr.line)
   );
 }
 

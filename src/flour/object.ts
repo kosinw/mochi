@@ -19,6 +19,7 @@
 import { FlourOpcode } from "./opcode";
 import { BoxedValueVariant, UnboxedValueVariant } from "@module/flour";
 import assert from "assert";
+import { FlourPrimitiveMethodCodes, primitiveBindings } from "./primitives";
 
 const WORD_SIZE = 4;
 
@@ -274,9 +275,7 @@ export function closure(numArguments: number, chunk: number, line?: number): Ins
   assert(chunk < 0x1000000);
 
   const buffer = Buffer.alloc(4);
-  buffer.writeUInt8(numArguments, 0);
-  buffer.writeUInt16LE(chunk, 1);
-  buffer.writeUint8(chunk, 3);
+  buffer.writeUint32LE((chunk << 8) | numArguments, 0);
 
 
   return complex(FlourOpcode.CLOSURE, buffer.readUInt32LE(0), line);
@@ -469,10 +468,16 @@ export type ObjectFile = {
  * @returns a new object file.
  */
 export function makeObjectFile(): ObjectFile {
+  const symbols = Object.keys(primitiveBindings)
+    .map(k => +k)
+    .map((k): [string, number] => [primitiveBindings[k as FlourPrimitiveMethodCodes], k])
+  
+  const reverse = symbols.slice().map(([k, v]): [number, string] => [v, k]);
+
   return {
     chunks: new Map(),
-    symbols: new Map(),
-    _symbolReverseMapping: new Map()
+    symbols: new Map(symbols),
+    _symbolReverseMapping: new Map(reverse)
   };
 }
 

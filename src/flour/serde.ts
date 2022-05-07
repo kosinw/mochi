@@ -97,7 +97,7 @@ class ChunkConstantSection implements BinarySection {
       method(flour.UnboxedValueVariant.FIXNUM,
         (x: flour.UnboxedValue, ptrOffset: number): Buffer => {
           assert(x.variant === flour.UnboxedValueVariant.FIXNUM);
-          return struct.pack(">BIxxx", [
+          return struct.pack(">Bixxx", [
             x.variant,
             x.value
           ]);
