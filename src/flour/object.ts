@@ -471,7 +471,11 @@ export function makeObjectFile(): ObjectFile {
   const symbols = Object.keys(primitiveBindings)
     .map(k => +k)
     .map((k): [string, number] => [primitiveBindings[k as FlourPrimitiveMethodCodes], k])
-  
+
+  while (symbols.length < 100) {
+    symbols.push([`(unused ${symbols.length})`, symbols.length]);
+  }
+
   const reverse = symbols.slice().map(([k, v]): [number, string] => [v, k]);
 
   return {

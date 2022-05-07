@@ -27,6 +27,7 @@ export enum FlourPrimitiveMethodCodes {
   ABS,
 
   // Compare
+  NUMERICAL_EQ,
   EQV,
   LESS,
   LEQ,
@@ -62,6 +63,7 @@ export const primitiveBindings: PrimitiveInstructions = {
   [FlourPrimitiveMethodCodes.NOT]: "not",
   [FlourPrimitiveMethodCodes.NEGATE]: "negate",
   [FlourPrimitiveMethodCodes.ABS]: "abs",
+  [FlourPrimitiveMethodCodes.NUMERICAL_EQ]: "=",
   [FlourPrimitiveMethodCodes.EQV]: "eqv?",
   [FlourPrimitiveMethodCodes.LESS]: "<",
   [FlourPrimitiveMethodCodes.LEQ]: "<=",

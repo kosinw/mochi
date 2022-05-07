@@ -528,7 +528,8 @@ enum SpecialForm {
   SET_BANG = "set!",
   QUOTE = "quote",
   AND = "and",
-  OR = "or"
+  OR = "or",
+  PRIMITIVE_NOT = "(primitive not)"
 };
 
 const compileDatum: CompileDatumGeneric = multi(
@@ -580,6 +581,19 @@ const compileExpressionGeneric: CompileExpressionGeneric = multi(
   method(isSpecialForm(SpecialForm.QUOTE), dispatchQuote),
   method(isSpecialForm(SpecialForm.AND), dispatchAnd),
   method(isSpecialForm(SpecialForm.OR), dispatchOr),
+  method(isSpecialForm(SpecialForm.PRIMITIVE_NOT),
+    (expr: SyntaxTree, unit: CompilationUnit, line: number) => {
+      assert(
+        expr.variant === SyntaxTreeVariant.LIST
+        && expr.value[0]
+        && expr.value[0].variant === SyntaxTreeVariant.ATOM
+        && expr.value[0].value.variant === DatumVariant.SYMBOL
+        && expr.value[0].value.value === SpecialForm.PRIMITIVE_NOT
+      );
+
+      void compileTail(expr.value, unit);
+      flour.emitInstruction(unit.chunk, flour.single(FlourOpcode.NOT, line));
+    }),
   method(
     SyntaxTreeVariant.LIST,
     (expr: SyntaxTree, unit: CompilationUnit, line: number) => {
@@ -974,7 +988,7 @@ function transformConjunction(expr: SyntaxTree[], and: boolean, start: number, l
     start: test.start
   };
 
-  const continueExpr: SyntaxTree = transformConjunction(expr.slice(1), and, start, length, line);
+  const succeedExpr: SyntaxTree = transformConjunction(expr.slice(1), and, start, length, line);
 
   return {
     variant: SyntaxTreeVariant.LIST,
@@ -986,9 +1000,24 @@ function transformConjunction(expr: SyntaxTree[], and: boolean, start: number, l
         line: test.line,
         start: test.start
       },
-      test,
-      and ? continueExpr : test,
-      and ? failExpr : continueExpr
+      and ? test : {
+        variant: SyntaxTreeVariant.LIST,
+        value: [
+          {
+            variant: SyntaxTreeVariant.ATOM,
+            value: { variant: DatumVariant.SYMBOL, value: "(primitive not)" },
+            length: test.length,
+            line: test.line,
+            start: test.start
+          },
+          test
+        ],
+        length: test.length,
+        line: test.line,
+        start: test.start
+      },
+      and ? succeedExpr : failExpr,
+      and ? failExpr : succeedExpr
     ],
     start: start,
     length: length,
@@ -1040,7 +1069,8 @@ function dispatchLambda(expr: SyntaxTree, unit: CompilationUnit): void {
       chunk,
       flour.complex(
         FlourOpcode.DEFINE_VARIABLE,
-        flour.resolveName(unit.objectFile, parameter.value.value)
+        flour.resolveName(unit.objectFile, parameter.value.value),
+        expr.line
       )
     );
   });
