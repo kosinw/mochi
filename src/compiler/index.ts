@@ -23,7 +23,6 @@ import invariant from "invariant";
 import { Multi, multi, method } from "@arrows/multimethod";
 import * as flour from "@module/flour";
 import { FlourOpcode } from "@module/flour";
-import { createSecureContext } from "tls";
 
 ////////////////////////////////////////////////////////
 //
@@ -786,9 +785,10 @@ function dispatchDefine(expr: SyntaxTree, unit: CompilationUnit): void {
 
   invariant(
     variable !== undefined &&
-    variable.variant === SyntaxTreeVariant.ATOM &&
-    variable.value.variant === DatumVariant.SYMBOL,
-    `Expected ${util.inspect(variable)} to be a symbol. Line ${variable.line}.`
+    ((variable.variant === SyntaxTreeVariant.ATOM &&
+      variable.value.variant === DatumVariant.SYMBOL) ||
+      variable.variant === SyntaxTreeVariant.LIST),
+    `Expected ${util.inspect(variable)} to be either a symbol or a list. Line ${variable.line}.`
   );
 
   invariant(
@@ -796,27 +796,78 @@ function dispatchDefine(expr: SyntaxTree, unit: CompilationUnit): void {
     `Expected ${util.inspect(subexpr)} to be an expression. Line ${subexpr.line}.`
   );
 
-  void compileExpression(subexpr, unit);
+  if (variable.variant === SyntaxTreeVariant.ATOM && variable.value.variant === DatumVariant.SYMBOL) {
+    void compileExpression(subexpr, unit);
 
-  const local = flour.resolveName(unit.objectFile, variable.value.value);
+    const local = flour.resolveName(unit.objectFile, variable.value.value);
 
-  flour.emitInstruction(
-    unit.chunk,
-    flour.complex(
-      FlourOpcode.DEFINE_VARIABLE,
-      local,
-      expr.line
-    )
-  );
+    flour.emitInstruction(
+      unit.chunk,
+      flour.complex(
+        FlourOpcode.DEFINE_VARIABLE,
+        local,
+        expr.line
+      )
+    );
 
-  flour.emitInstruction(
-    unit.chunk,
-    flour.complex(
-      FlourOpcode.GET_VARIABLE,
-      local,
-      expr.line
-    )
-  );
+    flour.emitInstruction(
+      unit.chunk,
+      flour.complex(
+        FlourOpcode.GET_VARIABLE,
+        local,
+        expr.line
+      )
+    );
+  } else {
+    assert(variable.variant === SyntaxTreeVariant.LIST);
+
+    const name = variable.value[0];
+
+    invariant(
+      name !== undefined &&
+      name.variant === SyntaxTreeVariant.ATOM &&
+      name.value.variant === DatumVariant.SYMBOL,
+      `Expected ${util.inspect(name)} to be a symbol. Line ${name.line}.`
+    );
+
+    void compileExpression({
+      ...expr,
+      variant: SyntaxTreeVariant.LIST,
+      value: [
+        {
+          ...expr,
+          variant: SyntaxTreeVariant.ATOM,
+          value: { variant: DatumVariant.SYMBOL, value: "lambda" }
+        },
+        {
+          ...expr,
+          variant: SyntaxTreeVariant.LIST,
+          value: variable.value.slice(1)
+        },
+        subexpr
+      ]
+    }, unit);
+
+    const local = flour.resolveName(unit.objectFile, name.value.value);
+
+    flour.emitInstruction(
+      unit.chunk,
+      flour.complex(
+        FlourOpcode.DEFINE_VARIABLE,
+        local,
+        expr.line
+      )
+    );
+
+    flour.emitInstruction(
+      unit.chunk,
+      flour.complex(
+        FlourOpcode.GET_VARIABLE,
+        local,
+        expr.line
+      )
+    );
+  }
 }
 
 /**
