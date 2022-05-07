@@ -18,7 +18,7 @@
 
 import * as flour from ".";
 import struct from "python-struct";
-import { Buffer, constants } from 'buffer';
+import { Buffer } from 'buffer';
 import { multi, method, Multi } from "@arrows/multimethod";
 import assert from "assert";
 
@@ -243,8 +243,6 @@ function serializeChunk(chunk: flour.Chunk, offset: number): Buffer {
 // OBJECT FILES
 //
 ///////////////////////////////////////////////////////////////////
-
-export const MAX_NUM_CHUNKS = 0x20;
 
 /**
  * Represents the binary encoding of an object file header.

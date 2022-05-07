@@ -748,7 +748,7 @@ function dispatchLet(expr: SyntaxTree, unit: CompilationUnit): void {
 
   flour.emitInstruction(
     unit.chunk,
-    flour.complex(FlourOpcode.CLOSURE, ix, expr.line)
+    flour.closure(letBindings.length, ix, expr.line)
   );
 
   flour.emitInstruction(
@@ -1041,11 +1041,7 @@ function dispatchLambda(expr: SyntaxTree, unit: CompilationUnit): void {
 
   flour.emitInstruction(
     unit.chunk,
-    flour.complex(
-      FlourOpcode.CLOSURE,
-      ix,
-      expr.line
-    )
+    flour.closure(parameterList.length, ix, expr.line)
   );
 }
 

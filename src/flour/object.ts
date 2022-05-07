@@ -278,6 +278,27 @@ export function complex(opcode: FlourOpcode, argument: number, line?: number): I
 }
 
 /**
+ * Creates a new closure instruction.
+ * 
+ * @param numArguments number of arguments in closure
+ * @param chunk a chunk
+ * @param line line number
+ * @returns a new closure instruction
+ */
+export function closure(numArguments: number, chunk: number, line?: number): Instruction {
+  assert(numArguments < 0x100);
+  assert(chunk < 0x1000000);
+
+  const buffer = Buffer.alloc(4);
+  buffer.writeUInt8(numArguments, 0);
+  buffer.writeUInt16LE(chunk, 1);
+  buffer.writeUint8(chunk, 3);
+
+
+  return complex(FlourOpcode.CLOSURE, buffer.readUInt32LE(0), line);
+}
+
+/**
  * Represents a singular "chunk" in Flour bytecode specification.
  * A chunk consists of a name, a list of all constants (unboxed values),
  * a list of all data objects (boxed values), and a list of all instructions.
@@ -475,7 +496,7 @@ export function makeObjectFile(): ObjectFile {
  * Creates a new, unnamed chunk in object file.
  * 
  * @param object an object file
- * @param prefix a prefix for new chunk name
+ * @param name a prefix for new chunk name
  */
 export function allocateChunk(object: ObjectFile, name?: string): [Chunk, number] {
   const ix = object.chunks.size;
