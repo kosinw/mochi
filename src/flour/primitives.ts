@@ -1,9 +1,9 @@
 
-export enum PRIMITIVE_VARIABLE_CODES{
+export enum FlourPrimitiveMethodCodes{
     // Math
-    ADD, 
-    MULTIPLY,
     SUBTRACT,
+    MULTIPLY,
+    ADD,
     DIVIDE,
     NOT,
     NEGATE,

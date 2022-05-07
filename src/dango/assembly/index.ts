@@ -1,6 +1,7 @@
 const MAX_PROGRAM_MEMORY = 1024*1024*16
 import {FlourOpcode} from "../../flour/opcode"
 import {FlourUnboxedTypeCode, FlourBoxedTypeCode} from "../../flour/typecode"
+import {FlourPrimitiveMethodCodes} from "../../flour/primitives"
 
 const UNBOXED_BYTE_LENGTH = 8;
 const UNBOXED_TYPE_LENGTH = 1;
@@ -20,8 +21,8 @@ export function initVM(programBuffer: Uint8Array):void{
   vm = new DangoVM(programBuffer)
 }
 
-export function run():u32{
-  const res = getData(vm.evaluate());
+export function run():i32{
+  const res = getSignedData(vm.evaluate());
   // const res = parseBytesAsUint(vm.evaluate(),1,4)
   vm.reset();
   return res;
@@ -45,6 +46,10 @@ function parseBytesAsUint64(arr:Uint8Array, offset: i32):u64{
 
 function getData(unboxed:u64):u32{
   return <u32>((unboxed<<8)>>32);
+}
+
+function getSignedData(unboxed:u64):i32{
+  return <i32>((unboxed<<8)>>32);
 }
 
 function getType(unboxed:u64):u32{
@@ -103,22 +108,27 @@ class Closure{
 }
 class DangoVM {
   stack: Uint64Array;
-  heap: Uint8Array;
+  // heap: Uint8Array;
   stackTop: u32;
   chunks: Chunk[];
   closures: Closure[];
   topEnvironment: Environment;
-  // environmentMap: Map<u32, Environment>;
-  environmentIndex: u32;
+
 
   constructor(programBuffer: Uint8Array){
     this.stack = new Uint64Array(1024);
     this.stackTop = 0;
-    this.heap = new Uint8Array(1024);
-    this.environmentIndex = 0;
     this.topEnvironment = new Environment(null);
     this.closures = new Array();
-    // this.environmentMap = new Map();
+    
+    let code = 0
+    for(let code=0; code<100;code++){
+      this.topEnvironment.define(code, makeUnboxed(FlourUnboxedTypeCode.FUNC_PTR, this.closures.length))
+      this.closures.push(new Closure(0, this.topEnvironment))
+      code++;
+    }
+
+
 
     if(parseBytesAsUint64(programBuffer, 0) != FILE_HEADER){
       throw new Error("Incorrect file header")
@@ -148,7 +158,6 @@ class DangoVM {
 
   reset():void{
     this.stackTop = 0;
-    this.pushUint(12);
   }
 
   private push(val: u64):void{
@@ -162,8 +171,8 @@ class DangoVM {
     this.stackTop++;
   }
 
-  private pushUint(i: u32):void{
-    this.push(makeUnboxed(FlourUnboxedTypeCode.FIXNUM, i))
+  private pushInt(i: i32):void{
+    this.push(makeUnboxed(FlourUnboxedTypeCode.FIXNUM, i>>>0))
   }
 
   private pushBool(i: bool):void{
@@ -181,8 +190,8 @@ class DangoVM {
   private pop():u64{
     return this.stack[--this.stackTop];
   }
-  private popData():u32{
-    return getData(this.stack[--this.stackTop]);
+  private popData():i32{
+    return getSignedData(this.stack[--this.stackTop]);
   }
 
   private peek(i: u32): u64{
@@ -206,9 +215,8 @@ class DangoVM {
     const environment = new Environment(enclosing);
     for(let i:u32=c.instructions_start;i<=c.chunkLen+c.instructions_start;i++){
       const opCode = c.buffer[i];
-      // this.printStack()
-      console.log("code")
-      console.log(opCode.toString())
+      this.printStack()
+      console.log("code " + opCode.toString())
       // console.log("data")
       // console.log(c.getInstructionData(i).toString())
       switch(opCode) {
@@ -246,12 +254,12 @@ class DangoVM {
           break;
         case FlourOpcode.RETURN:
           console.log("RETURNed")
-          return this.pop();
+          return this.peek(0);
         case FlourOpcode.CLOSURE:
           console.log("made closures")
           this.closures.push(new Closure(c.getInstructionData(i), environment))
-          i+=4
           this.pushFuncPtr(this.closures.length-1)
+          i+=4
           break
         case FlourOpcode.CALL:
           console.log("CALL")
@@ -259,8 +267,14 @@ class DangoVM {
           if(getType(last)!=FlourUnboxedTypeCode.FUNC_PTR){
             throw new Error("Must call a function")
           }
-          const closure = this.closures[getData(last)];
-          this.runChunk(this.chunks[closure.chunkNum], closure.enclosing)
+          const closure_ptr = getData(last)
+          const closure = this.closures[closure_ptr];
+          if(closure.chunkNum==0){
+            this.dispatchPrimitiveMethod(closure_ptr)
+          }
+          else{
+            this.runChunk(this.chunks[closure.chunkNum], closure.enclosing)
+          }
           i+=4
           break;
         default:
@@ -268,6 +282,34 @@ class DangoVM {
       }
     }
     throw new Error("Execution error")
+  }
+
+  numericOnly():void{
+    if(getType(this.peek(0))!=FlourUnboxedTypeCode.FIXNUM || getType(this.peek(1))!=FlourUnboxedTypeCode.FIXNUM)
+      throw new Error("Can only add fixnum");
+  }
+
+  dispatchPrimitiveMethod(code: u32):void{
+    switch(code) {
+      case FlourPrimitiveMethodCodes.ADD:
+        this.numericOnly()
+        this.pushInt(this.popData()+this.popData())
+      break;
+      case FlourPrimitiveMethodCodes.MULTIPLY:
+        this.numericOnly()
+        this.pushInt(this.popData()*<i32>this.popData())
+      break;
+      case FlourPrimitiveMethodCodes.SUBTRACT:
+        this.numericOnly()
+        this.pushInt(this.popData()-<i32>this.popData())
+      break;
+      case FlourPrimitiveMethodCodes.DIVIDE:
+        this.numericOnly()
+        this.pushInt(this.popData()/<i32>this.popData())
+      break;
+    
+    }
+
   }
  
 }
