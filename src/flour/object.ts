@@ -17,10 +17,7 @@
 ///
 
 import { FlourOpcode } from "./opcode";
-import {
-  FlourBoxedTypeCode as BoxedValueVariant,
-  FlourUnboxedTypeCode as UnboxedValueVariant
-} from "./typecode";
+import { BoxedValueVariant, UnboxedValueVariant } from "@module/flour";
 import assert from "assert";
 
 const WORD_SIZE = 4;

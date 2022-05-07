@@ -619,59 +619,59 @@ function makePrimitiveCompiler(opcode: FlourOpcode, arity: number): PrimitiveIns
   };
 }
 
-const PRIMITIVE_PROCEDURES: Map<string, PrimitiveInstructionCompiler> = new Map([
-  ["negate", makePrimitiveCompiler(FlourOpcode.NEGATE, 1)],
-  ["not", makePrimitiveCompiler(FlourOpcode.NOT, 1)],
-  ["log", makePrimitiveCompiler(FlourOpcode.LOG, 1)],
-  ["+", makePrimitiveCompiler(FlourOpcode.ADD, 2)],
-  ["-", makePrimitiveCompiler(FlourOpcode.SUBTRACT, 2)],
-  ["*", makePrimitiveCompiler(FlourOpcode.MULTIPLY, 2)],
-  ["/", makePrimitiveCompiler(FlourOpcode.DIVIDE, 2)],
-  ["=", makePrimitiveCompiler(FlourOpcode.EQUAL, 2)],
-  ["<", makePrimitiveCompiler(FlourOpcode.LESS, 2)],
-  [">", makePrimitiveCompiler(FlourOpcode.GREATER, 2)],
-  ["expt", makePrimitiveCompiler(FlourOpcode.POW, 2)],
-  ["remainder", makePrimitiveCompiler(FlourOpcode.MOD, 2)]
-]);
+// const PRIMITIVE_PROCEDURES: Map<string, PrimitiveInstructionCompiler> = new Map([
+//   ["negate", makePrimitiveCompiler(FlourOpcode.NEGATE, 1)],
+//   ["not", makePrimitiveCompiler(FlourOpcode.NOT, 1)],
+//   ["log", makePrimitiveCompiler(FlourOpcode.LOG, 1)],
+//   ["+", makePrimitiveCompiler(FlourOpcode.ADD, 2)],
+//   ["-", makePrimitiveCompiler(FlourOpcode.SUBTRACT, 2)],
+//   ["*", makePrimitiveCompiler(FlourOpcode.MULTIPLY, 2)],
+//   ["/", makePrimitiveCompiler(FlourOpcode.DIVIDE, 2)],
+//   ["=", makePrimitiveCompiler(FlourOpcode.EQUAL, 2)],
+//   ["<", makePrimitiveCompiler(FlourOpcode.LESS, 2)],
+//   [">", makePrimitiveCompiler(FlourOpcode.GREATER, 2)],
+//   ["expt", makePrimitiveCompiler(FlourOpcode.POW, 2)],
+//   ["remainder", makePrimitiveCompiler(FlourOpcode.MOD, 2)]
+// ]);
 
-/**
- * @param expr a syntax tree
- * @param _unit a compilation unit
- * @returns true iff expr represents a call to a primitive procedure
- */
-function isPrimitiveCall(expr: SyntaxTree, _unit: CompilationUnit): boolean {
-  return expr.variant === SyntaxTreeVariant.LIST
-    && expr.value[0]
-    && expr.value[0].variant === SyntaxTreeVariant.ATOM
-    && expr.value[0].value.variant === DatumVariant.SYMBOL
-    && PRIMITIVE_PROCEDURES.has(expr.value[0].value.value);
-}
+// /**
+//  * @param expr a syntax tree
+//  * @param _unit a compilation unit
+//  * @returns true iff expr represents a call to a primitive procedure
+//  */
+// function isPrimitiveCall(expr: SyntaxTree, _unit: CompilationUnit): boolean {
+//   return expr.variant === SyntaxTreeVariant.LIST
+//     && expr.value[0]
+//     && expr.value[0].variant === SyntaxTreeVariant.ATOM
+//     && expr.value[0].value.variant === DatumVariant.SYMBOL
+//     && PRIMITIVE_PROCEDURES.has(expr.value[0].value.value);
+// }
 
-/**
- * Dispatches to a primitive call based on syntax tree.
- * 
- * @param expr a syntax tree
- * @param unit a compilation unit
- */
-function dispatchPrimitiveCall(expr: SyntaxTree, unit: CompilationUnit): void {
-  assert(expr.variant === SyntaxTreeVariant.LIST
-    && expr.value[0]
-    && expr.value[0].variant === SyntaxTreeVariant.ATOM
-    && expr.value[0].value.variant === DatumVariant.SYMBOL);
+// /**
+//  * Dispatches to a primitive call based on syntax tree.
+//  * 
+//  * @param expr a syntax tree
+//  * @param unit a compilation unit
+//  */
+// function dispatchPrimitiveCall(expr: SyntaxTree, unit: CompilationUnit): void {
+//   assert(expr.variant === SyntaxTreeVariant.LIST
+//     && expr.value[0]
+//     && expr.value[0].variant === SyntaxTreeVariant.ATOM
+//     && expr.value[0].value.variant === DatumVariant.SYMBOL);
 
-  const name = expr.value[0].value.value;
+//   const name = expr.value[0].value.value;
 
-  const compiler = PRIMITIVE_PROCEDURES.get(name);
-  assert(compiler);
+//   const compiler = PRIMITIVE_PROCEDURES.get(name);
+//   assert(compiler);
 
-  invariant(
-    expr.value.length - 1 === compiler.arity,
-    `Procedure '${name}' called with the wrong number of arguments, expected ${compiler.arity}, instead got ${expr.value.length - 1}`
-  );
+//   invariant(
+//     expr.value.length - 1 === compiler.arity,
+//     `Procedure '${name}' called with the wrong number of arguments, expected ${compiler.arity}, instead got ${expr.value.length - 1}`
+//   );
 
-  compileTail(expr.value, unit);
-  compiler.call(unit, expr.line);
-}
+//   compileTail(expr.value, unit);
+//   compiler.call(unit, expr.line);
+// }
 
 
 /**

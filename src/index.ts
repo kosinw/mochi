@@ -1,2 +1,2 @@
-export * from '@module/compiler';
-export * from '@module/flour';
+import * as ricecakes from "@module/compiler";
+import * as flour from "@module/flour";
