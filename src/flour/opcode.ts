@@ -18,16 +18,8 @@ export enum FlourOpcode {
   CLOSURE,
 
   /// Instructions that could be implemented as primitive procedures.
-  EQUAL,
-  ADD,
-  GREATER,
-  LESS,
-  SUBTRACT,
-  MULTIPLY,
-  DIVIDE,
+  
   POW,
   MOD,
-  NOT,
-  LOG,
-  NEGATE
+
 }
