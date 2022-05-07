@@ -11,5 +11,6 @@ export enum FlourUnboxedTypeCode {
     FIXNUM,
     BOOLEAN,
     CHARACTER,
+    FUNC_PTR,
     PTR
 };

@@ -59,18 +59,17 @@ function makeUnboxed(type:u64, data:u64):u64{
 class Environment{
   map: Map<u32, u64>;
   parent: Environment|null;
-  index: u32;
-  constructor(parent: Environment|null, index:u32){
+
+  constructor(parent: Environment|null){
     this.parent=parent;
     this.map = new Map();
-    this.index = index;
   }
 
   public get(key:u32):u64{
     if(this.map.has(key)){
       return this.map.get(key)
     }
-    if(this.parent!=null){
+    if(this.parent!==null){
       return (<Environment>this.parent).get(key);
     }
     throw new Error("Tried getting variable thats not in scope")
@@ -80,24 +79,36 @@ class Environment{
     if(this.map.has(key)){
       this.map.set(key, value)
     }
-    else if(this.parent!=null){
+    else if(this.parent!==null){
       (<Environment>this.parent).set(key, value);
     }
-    throw new Error("Tried setting variable thats not in scope")
+    else{
+      throw new Error("Tried setting variable thats not in scope")
+    }
   }
 
   public define(key:u32, value:u64):void{
     this.map.set(key, value)
   }
+}
 
+class Closure{
+  // num_args: u32;
+  chunkNum: u32;
+  enclosing: Environment;
+  constructor(chunkNum:u32, env:Environment){
+    this.chunkNum = chunkNum;
+    this.enclosing = env;
+  }
 }
 class DangoVM {
   stack: Uint64Array;
   heap: Uint8Array;
   stackTop: u32;
   chunks: Chunk[];
+  closures: Closure[];
   topEnvironment: Environment;
-  environmentMap: Map<u32, Environment>;
+  // environmentMap: Map<u32, Environment>;
   environmentIndex: u32;
 
   constructor(programBuffer: Uint8Array){
@@ -105,16 +116,17 @@ class DangoVM {
     this.stackTop = 0;
     this.heap = new Uint8Array(1024);
     this.environmentIndex = 0;
-    this.topEnvironment = new Environment(null, this.environmentIndex++);
-    this.environmentMap = new Map();
+    this.topEnvironment = new Environment(null);
+    this.closures = new Array();
+    // this.environmentMap = new Map();
 
     if(parseBytesAsUint64(programBuffer, 0) != FILE_HEADER){
       throw new Error("Incorrect file header")
     }
 
     const num_chunks: u32 = parseBytesAsUint32(programBuffer, 8)
-    // console.log("num chunks")
-    // console.log(num_chunks.toString())
+    console.log("num chunks")
+    console.log(num_chunks.toString())
     this.chunks = new Array<Chunk>(num_chunks);
 
     for(let i:u32=0; i<num_chunks; i++){
@@ -131,7 +143,7 @@ class DangoVM {
   }
 
   evaluate(): u64{
-    return this.runChunk(this.chunks[this.chunks.length-1], this.topEnvironment)
+    return this.runChunk(this.chunks[0], this.topEnvironment)
   }
 
   reset():void{
@@ -160,7 +172,10 @@ class DangoVM {
 
   private pushPtr(i: u32):void{
     this.push(makeUnboxed(FlourUnboxedTypeCode.PTR, i))
+  }
 
+  private pushFuncPtr(i: u32):void{
+    this.push(makeUnboxed(FlourUnboxedTypeCode.FUNC_PTR, i))
   }
 
   private pop():u64{
@@ -186,48 +201,17 @@ class DangoVM {
 
 
 
-  private runChunk(c: Chunk, environment: Environment): u64{
-    this.environmentMap.set(environment.index, environment)
+  private runChunk(c: Chunk, enclosing: Environment): u64{
+    // this.environmentMap.set(environment.index, environment)
+    const environment = new Environment(enclosing);
     for(let i:u32=c.instructions_start;i<=c.chunkLen+c.instructions_start;i++){
       const opCode = c.buffer[i];
-      this.printStack()
-
-      // console.log("code")
-      // console.log(opCode.toString())
+      // this.printStack()
+      console.log("code")
+      console.log(opCode.toString())
       // console.log("data")
       // console.log(c.getInstructionData(i).toString())
       switch(opCode) {
-        case FlourOpcode.ADD:
-          console.log("add")
-          this.pushUint(this.popData()+this.popData())
-          break;
-        case FlourOpcode.SUBTRACT:
-          console.log("sub")
-          // console.log((this.peekData(-2)-this.peekData(-1)).toString())
-          this.pushUint(this.popData()-this.popData())
-          break;
-        case FlourOpcode.MULTIPLY:
-          console.log("mult")
-          this.pushUint(this.popData()*this.popData())
-          break;
-        case FlourOpcode.DIVIDE:
-          console.log("div")
-          this.pushUint(this.popData()/this.popData())
-          break;
-        case FlourOpcode.EQUAL:
-          console.log("eq")
-          // this.popTwo();
-          this.pushBool(this.popData()==this.popData())
-          break;
-        case FlourOpcode.LESS:
-          console.log("less")
-          // this.popTwo();
-          this.pushBool(this.popData()<this.popData())
-          break;
-        case FlourOpcode.GREATER:
-          console.log("gre")
-          this.pushBool(this.popData()>this.popData())
-          break;
         case FlourOpcode.JUMP:
           i+=c.getInstructionData(i)*INSTRUCTION_BYTE_LENGTH
           i+=4
@@ -258,26 +242,32 @@ class DangoVM {
           i+=4
           break;
         case FlourOpcode.POP:
-          // console.log("pop")
           this.pop();
           break;
         case FlourOpcode.RETURN:
-          // this.pop();
-          console.log("RETURN")
+          console.log("RETURNed")
           return this.pop();
+        case FlourOpcode.CLOSURE:
+          console.log("made closures")
+          this.closures.push(new Closure(c.getInstructionData(i), environment))
+          i+=4
+          this.pushFuncPtr(this.closures.length-1)
+          break
         case FlourOpcode.CALL:
-          // console.log("Call")
+          console.log("CALL")
           const last = this.pop();
-          let chunkIndex = 0;
-          // this.runChunk(chunkIndex, new Environment(environment, this.environmentIndex++))
-          // this.runChunk(this.chunks[parseBytesAsUint(c.buffer, i+1, 4)])
-          // console.log("resolved")
-          // console.log(i.toString())
-          // console.log(c.chunkLen.toString())
+          if(getType(last)!=FlourUnboxedTypeCode.FUNC_PTR){
+            throw new Error("Must call a function")
+          }
+          const closure = this.closures[getData(last)];
+          this.runChunk(this.chunks[closure.chunkNum], closure.enclosing)
+          i+=4
           break;
+        default:
+          throw new Error("Opcode " + opCode.toString() + " not implemented")
       }
     }
-    throw "error"
+    throw new Error("Execution error")
   }
  
 }
