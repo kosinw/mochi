@@ -109,6 +109,7 @@ async function main(): Promise<void> {
     } else if (response === ":asm") {
       const buffer = flour.serialize(object);
       console.log(chalk.dim(hexdump(buffer).join("\n")));
+      console.log(buffer.toString('hex'))
       continue;
     } else if (response === ":dis") {
       console.log(chalk.dim(flour.disassemble(object)));
