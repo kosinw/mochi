@@ -9,6 +9,8 @@ import assert from 'assert';
 import util from 'util';
 import { hexdump } from '@gct256/hexdump';
 
+// import * as releaseVM from "dango/build/release.js"
+
 function count(s: string, c: string): number {
   assert(c.length === 1);
 
@@ -115,6 +117,13 @@ async function main(): Promise<void> {
       console.log(chalk.dim(flour.disassemble(object)));
       continue;
     }
+    else if (response === ":run") {
+      const buffer = flour.serialize(object);
+      debugVM.initVM(buffer)
+      console.log("Result:", debugVM.run())
+      continue;
+    }
+    
 
     try {
       object = ricecakes.compile(response);
