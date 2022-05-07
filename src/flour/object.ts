@@ -17,13 +17,13 @@
 ///
 
 import { FlourOpcode } from "./opcode";
-import { FlourBoxedTypeCode as BoxedValueVariant, FlourUnboxedTypeCode as UnboxedValueVariant } from "./typecode";
+import {
+  FlourBoxedTypeCode as BoxedValueVariant,
+  FlourUnboxedTypeCode as UnboxedValueVariant
+} from "./typecode";
 import assert from "assert";
 
 const WORD_SIZE = 4;
-export type Ptr = number;
-
-
 
 /**
  * Represents a boxed value in Flour bytecode specification.
@@ -32,7 +32,7 @@ export type Ptr = number;
  * in width and can be pointed to by values on the stack.
  */
 export type BoxedValue =
-  | { variant: BoxedValueVariant.PAIR, car: Ptr, cdr: Ptr }
+  | { variant: BoxedValueVariant.PAIR, car: number, cdr: number }
   | { variant: BoxedValueVariant.SYMBOL, value: string }
 
 /**
@@ -45,7 +45,7 @@ export type UnboxedValue =
   | { variant: UnboxedValueVariant.FIXNUM, value: number }
   | { variant: UnboxedValueVariant.NIL }
   | { variant: UnboxedValueVariant.BOOLEAN, value: boolean }
-  | { variant: UnboxedValueVariant.PTR, value: Ptr }
+  | { variant: UnboxedValueVariant.PTR, value: number }
   | { variant: UnboxedValueVariant.CHARACTER, value: string };
 
 /**
