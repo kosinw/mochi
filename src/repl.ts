@@ -117,12 +117,12 @@ async function main(): Promise<void> {
       console.log(chalk.dim(flour.disassemble(object)));
       continue;
     }
-    else if (response === ":run") {
-      const buffer = flour.serialize(object);
-      debugVM.initVM(buffer)
-      console.log("Result:", debugVM.run())
-      continue;
-    }
+    // else if (response === ":run") {
+    //   const buffer = flour.serialize(object);
+    //   debugVM.initVM(buffer)
+    //   console.log("Result:", debugVM.run())
+    //   continue;
+    // }
     
 
     try {
