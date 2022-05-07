@@ -17,18 +17,13 @@
 ///
 
 import { FlourOpcode } from "./opcode";
+import { FlourBoxedTypeCode as BoxedValueVariant, FlourUnboxedTypeCode as UnboxedValueVariant } from "./typecode";
 import assert from "assert";
 
 const WORD_SIZE = 4;
 export type Ptr = number;
 
-export enum BoxedValueVariant {
-  PAIR,
-  SYMBOL,
-  CLOSURE,
-  // STRING,
-  // VECTOR
-};
+
 
 /**
  * Represents a boxed value in Flour bytecode specification.
@@ -39,14 +34,6 @@ export enum BoxedValueVariant {
 export type BoxedValue =
   | { variant: BoxedValueVariant.PAIR, car: Ptr, cdr: Ptr }
   | { variant: BoxedValueVariant.SYMBOL, value: string }
-
-export enum UnboxedValueVariant {
-  NIL = 0,
-  FIXNUM,
-  BOOLEAN,
-  CHARACTER,
-  PTR
-};
 
 /**
  * Represents an unboxed value in Flour bytecode specification.

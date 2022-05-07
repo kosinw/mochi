@@ -15,9 +15,9 @@ export enum FlourOpcode {
   CALL,
   RETURN,
   POP,
+  CLOSURE,
 
   /// Instructions that could be implemented as primitive procedures.
-  CLOSURE,
   EQUAL,
   ADD,
   GREATER,
