@@ -22,8 +22,8 @@ import assert from "assert";
 import invariant from "invariant";
 import { Multi, multi, method } from "@arrows/multimethod";
 import * as flour from "@module/flour";
-import { FlourOpcode, FlourPrimitiveMethodCodes, primitiveBindings } from "@module/flour";
-import exp from "constants";
+import { FlourOpcode } from "@module/flour";
+import { createSecureContext } from "tls";
 
 ////////////////////////////////////////////////////////
 //
@@ -243,7 +243,12 @@ function makeTokenCombinator<T>(
  * @returns true iff a character is numeric
  */
 function isNumeric(t: Tokenizer): boolean {
-  const isNegative = (peek(t) === "-") && !Number.isNaN(+peek({ ...t, current: t.current + 1 }));
+  const isNegative = (peek(t) === "-") &&
+    Number.isInteger(peek({
+      source: t.source,
+      line: t.line,
+      current: t.current + 1
+    }));
   return isNegative || !Number.isNaN(+peek(t));
 }
 
@@ -961,7 +966,7 @@ function transformConjunction(expr: SyntaxTree[], and: boolean, start: number, l
 
   assert(test !== undefined);
 
-  const failExpr: SyntaxTree =  {
+  const failExpr: SyntaxTree = {
     variant: SyntaxTreeVariant.ATOM,
     value: { variant: DatumVariant.BOOLEAN, value: !and },
     length: test.length,
