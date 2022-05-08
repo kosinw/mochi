@@ -5,7 +5,6 @@ const buffer = new Uint8Array(code.length/2)
 for(let i=0;i<code.length;i+=2){
     buffer[i/2]=parseInt(code.substring(i,i+2), 16);
 }
-console.log(buffer)
 
 debug.initVM(buffer);
 

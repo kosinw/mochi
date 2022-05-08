@@ -17,15 +17,19 @@ let vm: DangoVM;
 
 
 export function initVM(programBuffer: Uint8Array):void{
-  console.log("INITING")
   vm = new DangoVM(programBuffer)
 }
 
-export function run():i32{
-  const res = getSignedData(vm.evaluate());
-  // const res = parseBytesAsUint(vm.evaluate(),1,4)
-  vm.reset();
-  return res;
+export function getConsole():string{
+  return vm.log;
+}
+
+export function getError():Error{
+  return new Error("bruh");
+}
+
+export function run():u64{
+  return vm.evaluate();
 }
 
 function parseBytesAsUint32(arr:Uint8Array, offset: i32):u32{
@@ -98,17 +102,18 @@ class Environment{
 }
 
 class Closure{
-  // num_args: u32;
+  num_args: u32;
   chunkNum: u32;
   enclosing: Environment;
-  constructor(chunkNum:u32, env:Environment){
+  constructor(num_args:u32, chunkNum:u32, env:Environment){
+    this.num_args = num_args;
     this.chunkNum = chunkNum;
     this.enclosing = env;
   }
 }
 class DangoVM {
   stack: Uint64Array;
-  // heap: Uint8Array;
+  log: string;
   stackTop: u32;
   chunks: Chunk[];
   closures: Closure[];
@@ -120,23 +125,19 @@ class DangoVM {
     this.stackTop = 0;
     this.topEnvironment = new Environment(null);
     this.closures = new Array();
-    
-    let code = 0
+    this.log = ""
     for(let code=0; code<100;code++){
       this.topEnvironment.define(code, makeUnboxed(FlourUnboxedTypeCode.FUNC_PTR, this.closures.length))
-      this.closures.push(new Closure(0, this.topEnvironment))
-      code++;
+      this.closures.push(new Closure(-1, 0, this.topEnvironment))
     }
-
-
 
     if(parseBytesAsUint64(programBuffer, 0) != FILE_HEADER){
       throw new Error("Incorrect file header")
     }
 
     const num_chunks: u32 = parseBytesAsUint32(programBuffer, 8)
-    console.log("num chunks")
-    console.log(num_chunks.toString())
+    // console.log("num chunks")
+    // console.log(num_chunks.toString())
     this.chunks = new Array<Chunk>(num_chunks);
 
     for(let i:u32=0; i<num_chunks; i++){
@@ -149,7 +150,7 @@ class DangoVM {
 
       this.chunks[i] = new Chunk(start_ptr, end_ptr-start_ptr, programBuffer)
     }
-
+    
   }
 
   evaluate(): u64{
@@ -171,8 +172,12 @@ class DangoVM {
     this.stackTop++;
   }
 
-  private pushInt(i: i32):void{
-    this.push(makeUnboxed(FlourUnboxedTypeCode.FIXNUM, i>>>0))
+  private pushInt(i: u32):void{
+    this.push(makeUnboxed(FlourUnboxedTypeCode.FIXNUM, i))
+  }
+
+  private pushNil():void{
+    this.push(makeUnboxed(FlourUnboxedTypeCode.NIL, 0))
   }
 
   private pushBool(i: bool):void{
@@ -204,7 +209,7 @@ class DangoVM {
   private printStack():void{
     console.log("stak")
     for(let i:u32=0;i<this.stackTop;i++){
-      console.log(getData(this.stack[i]).toString())
+      console.log("type: "+getType(this.stack[i]).toString()+ " data: "+ getData(this.stack[i]).toString())
     }
   }
 
@@ -215,10 +220,8 @@ class DangoVM {
     const environment = new Environment(enclosing);
     for(let i:u32=c.instructions_start;i<=c.chunkLen+c.instructions_start;i++){
       const opCode = c.buffer[i];
-      this.printStack()
-      console.log("code " + opCode.toString())
-      // console.log("data")
-      // console.log(c.getInstructionData(i).toString())
+      // this.printStack()
+
       switch(opCode) {
         case FlourOpcode.JUMP:
           i+=c.getInstructionData(i)*INSTRUCTION_BYTE_LENGTH
@@ -231,12 +234,12 @@ class DangoVM {
           }
           break;
         case FlourOpcode.GET_VARIABLE:
-          console.log("GET")
+          // console.log("GET")
           this.push(environment.get(c.getInstructionData(i)))
           i+=4
           break;
         case FlourOpcode.DEFINE_VARIABLE:
-          console.log("DEFINE")
+          // console.log("DEFINE")
           environment.define(c.getInstructionData(i), this.pop())
           i+=4
           break;
@@ -245,7 +248,7 @@ class DangoVM {
           i+=4
           break;
         case FlourOpcode.CONSTANT:
-          console.log("const")
+          // console.log("const")
           this.pushConstant(c, c.getInstructionData(i))
           i+=4
           break;
@@ -253,26 +256,34 @@ class DangoVM {
           this.pop();
           break;
         case FlourOpcode.RETURN:
-          console.log("RETURNed")
+          // console.log("RETURNed")
           return this.peek(0);
         case FlourOpcode.CLOSURE:
-          console.log("made closures")
-          this.closures.push(new Closure(c.getInstructionData(i), environment))
+          // console.log("made closures")
+          const idata = c.getInstructionData(i)
+          const args = (idata << 24) >>> 24
+          const chunk_num = idata >> 8
+
+          this.closures.push(new Closure(args, chunk_num, environment))
           this.pushFuncPtr(this.closures.length-1)
           i+=4
           break
         case FlourOpcode.CALL:
-          console.log("CALL")
+          // console.log("CALL")
           const last = this.pop();
           if(getType(last)!=FlourUnboxedTypeCode.FUNC_PTR){
             throw new Error("Must call a function")
           }
+          const num_args = c.getInstructionData(i)
           const closure_ptr = getData(last)
           const closure = this.closures[closure_ptr];
           if(closure.chunkNum==0){
-            this.dispatchPrimitiveMethod(closure_ptr)
+            this.dispatchPrimitiveMethod(closure_ptr, num_args)
           }
           else{
+            if(closure.num_args != num_args){
+              throw new Error("Called function with wrong number of arguments")
+            }
             this.runChunk(this.chunks[closure.chunkNum], closure.enclosing)
           }
           i+=4
@@ -289,23 +300,73 @@ class DangoVM {
       throw new Error("Can only add fixnum");
   }
 
-  dispatchPrimitiveMethod(code: u32):void{
+  dispatchPrimitiveMethod(code: u32, args: u32):void{
+    let sum:i32 = 0;
+    let prod:i32 =1;
+    const original_args = args;
     switch(code) {
       case FlourPrimitiveMethodCodes.ADD:
         this.numericOnly()
-        this.pushInt(this.popData()+this.popData())
+        while(args-->0){
+          sum += this.popData()
+        }
+        this.pushInt(sum)
       break;
       case FlourPrimitiveMethodCodes.MULTIPLY:
         this.numericOnly()
-        this.pushInt(this.popData()*<i32>this.popData())
+        while(args-->0){
+          prod *= this.popData()
+        }
+        this.pushInt(prod)
       break;
       case FlourPrimitiveMethodCodes.SUBTRACT:
         this.numericOnly()
-        this.pushInt(this.popData()-<i32>this.popData())
+        sum = getSignedData(this.stack[this.stackTop-args])
+        while(args-->1){
+          sum -= getSignedData(this.stack[this.stackTop-args])
+        }
+        this.stackTop -= original_args
+        this.pushInt(sum)
       break;
       case FlourPrimitiveMethodCodes.DIVIDE:
         this.numericOnly()
-        this.pushInt(this.popData()/<i32>this.popData())
+        prod = getSignedData(this.stack[this.stackTop-args])
+        while(args-->1){
+          prod /= getSignedData(this.stack[this.stackTop-args])
+        }
+        this.stackTop -= original_args
+        this.pushInt(prod)
+      break;
+      case FlourPrimitiveMethodCodes.PRINT:
+        let output = "";
+        while(args-->0){
+          const last = this.stack[this.stackTop-args-1]
+          const type = getType(last)
+          const data = getSignedData(last)
+          if(type == FlourUnboxedTypeCode.BOOLEAN){
+            output+=data>0? "true" : "false"
+          }
+          else if(type == FlourUnboxedTypeCode.CHARACTER){
+            output+=String.fromCharCode(data)
+          }
+          else if(type == FlourUnboxedTypeCode.FIXNUM){
+            output+=data.toString()
+          }
+          else if(type == FlourUnboxedTypeCode.NIL){
+            output+="null"
+          }
+          else if(type == FlourUnboxedTypeCode.FUNC_PTR){
+            output+="[lambda #" + getData(last).toString()+"]"
+          }
+          if(args>0){
+            output+=" "
+          }
+        }
+        this.stackTop -= original_args
+        this.log += output + "\n"
+        console.log(output)
+        this.pushNil()
+
       break;
     
     }
@@ -336,16 +397,15 @@ class Chunk {
 
     this.constants_start = this.offset+16;
     this.num_constants = (this.data_start-this.constants_start)/UNBOXED_BYTE_LENGTH
-    console.log("num constants")
-    console.log(this.num_constants.toString())
+    // console.log("num constants")
+    // console.log(this.num_constants.toString())
     this.constants = new Uint64Array(this.num_constants);
 
-    console.log("Constants")
+    // console.log("Constants")
 
     let index = 0;
     for(let i=this.constants_start;i<this.data_start;i+=UNBOXED_BYTE_LENGTH){
       this.constants[index++] = parseBytesAsUint64(buffer, i)
-      console.log(this.constants[index-1].toString())
     }
 
   }
