@@ -70,7 +70,7 @@ function printUnboxed(unboxed: u64): string{
   const type = getType(unboxed)
   const data = getSignedData(unboxed)
   if(type == FlourUnboxedTypeCode.BOOLEAN){
-    return data>0? "true" : "false"
+    return data>0? "#t" : "#f"
   }
   else if(type == FlourUnboxedTypeCode.CHARACTER){
     return String.fromCharCode(data)
