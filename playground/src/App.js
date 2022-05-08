@@ -64,7 +64,7 @@ function App() {
     vm.initVM(flour.serialize(compiled));
     try {
       const result = vm.run();
-      setOutput(result);
+      setOutput(`Result: ${result}\n`+vm.getConsole());
     } catch (err) {
       setOutput(err.toString());
     }
