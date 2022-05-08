@@ -35,6 +35,10 @@ export async function instantiate(module, imports = {}) {
       // assembly/index/getError() => ~lib/error/Error
       return __liftInternref(exports.getError() >>> 0);
     },
+    run() {
+      // assembly/index/run() => ~lib/string/String
+      return __liftString(exports.run() >>> 0);
+    },
   }, exports);
   function __liftString(pointer) {
     if (!pointer) return null;

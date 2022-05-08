@@ -1,4 +1,3 @@
-const MAX_PROGRAM_MEMORY = 1024*1024*16
 import {FlourOpcode} from "../../flour/opcode"
 import {FlourUnboxedTypeCode, FlourBoxedTypeCode} from "../../flour/typecode"
 import {FlourPrimitiveMethodCodes} from "../../flour/primitives"
@@ -15,6 +14,9 @@ const INSTRUCTION_DATA_LENGTH = 4;
 
 let vm: DangoVM;
 
+const debug = false;
+
+let runResult:u64 = 0;
 
 export function initVM(programBuffer: Uint8Array):void{
   vm = new DangoVM(programBuffer)
@@ -28,8 +30,8 @@ export function getError():Error{
   return new Error("bruh");
 }
 
-export function run():u64{
-  return vm.evaluate();
+export function run():string{
+  return printUnboxed(vm.evaluate());
 }
 
 function parseBytesAsUint32(arr:Uint8Array, offset: i32):u32{
@@ -64,6 +66,26 @@ function makeUnboxed(type:u64, data:u64):u64{
   return (type<<56)|(data<<24);
 }
 
+function printUnboxed(unboxed: u64): string{
+  const type = getType(unboxed)
+  const data = getSignedData(unboxed)
+  if(type == FlourUnboxedTypeCode.BOOLEAN){
+    return data>0? "true" : "false"
+  }
+  else if(type == FlourUnboxedTypeCode.CHARACTER){
+    return String.fromCharCode(data)
+  }
+  else if(type == FlourUnboxedTypeCode.FIXNUM){
+    return data.toString()
+  }
+  else if(type == FlourUnboxedTypeCode.NIL){
+    return "null"
+  }
+  else if(type == FlourUnboxedTypeCode.FUNC_PTR){
+    return "[lambda #" + getData(unboxed).toString()+"]"
+  }
+  throw new Error("Cant print unboxed type " + type.toString())
+}
 
 class Environment{
   map: Map<u32, u64>;
@@ -121,7 +143,7 @@ class DangoVM {
 
 
   constructor(programBuffer: Uint8Array){
-    this.stack = new Uint64Array(1024);
+    this.stack = new Uint64Array(1024*256);
     this.stackTop = 0;
     this.topEnvironment = new Environment(null);
     this.closures = new Array();
@@ -167,7 +189,7 @@ class DangoVM {
   }
 
   private pushConstant(c: Chunk, ind: u32):void{
-    // this.stack.set(c.buffer.subarray(c.constants_start+UNBOXED_BYTE_LENGTH*ind, c.constants_start+UNBOXED_BYTE_LENGTH*(ind+1)), this.stackTop)
+    if (debug) console.log("Constant "+ind.toString()+" out of " + c.constants.length.toString())
     this.stack[this.stackTop] = c.constants[ind]
     this.stackTop++;
   }
@@ -224,40 +246,53 @@ class DangoVM {
 
       switch(opCode) {
         case FlourOpcode.JUMP:
+          if(debug) console.log("JUMP")
           i+=c.getInstructionData(i)+4
           break;
         case FlourOpcode.JUMP_IF_FALSE:
-          if(this.pop()==0){
-            i+=c.getInstructionData(i)+4
+          if(debug) console.log("JUMP False")
+          if(getData(this.pop())==0){
+            if(debug) console.log("^")
+            i+=c.getInstructionData(i)
           }
+          i+=4
+          break;
+        case FlourOpcode.NOT:
+          if(debug) console.log("NOT")
+          if(getType(this.peek(0))!=FlourUnboxedTypeCode.BOOLEAN){
+            throw new Error("Error can only not a boolean")
+          }
+          this.stack[this.stackTop-1]^=(1<<24)
           break;
         case FlourOpcode.GET_VARIABLE:
-          // console.log("GET")
+          if(debug) console.log("GET var " + c.getInstructionData(i).toString())
           this.push(environment.get(c.getInstructionData(i)))
           i+=4
           break;
         case FlourOpcode.DEFINE_VARIABLE:
-          // console.log("DEFINE")
+          if(debug) console.log("DEFINE")
           environment.define(c.getInstructionData(i), this.pop())
           i+=4
           break;
         case FlourOpcode.SET_VARIABLE:
+          if(debug) console.log("SET")
           environment.set(c.getInstructionData(i), this.pop())
           i+=4
           break;
         case FlourOpcode.CONSTANT:
-          // console.log("const")
+          if(debug) console.log("CONST")
           this.pushConstant(c, c.getInstructionData(i))
           i+=4
           break;
         case FlourOpcode.POP:
+          if(debug) console.log("POP")
           this.pop();
           break;
         case FlourOpcode.RETURN:
-          // console.log("RETURNed")
+          if(debug) console.log("RETURN")
           return this.peek(0);
         case FlourOpcode.CLOSURE:
-          // console.log("made closures")
+          if(debug) console.log("CLOSURE")
           const idata = c.getInstructionData(i)
           const args = (idata << 24) >>> 24
           const chunk_num = idata >> 8
@@ -267,7 +302,7 @@ class DangoVM {
           i+=4
           break
         case FlourOpcode.CALL:
-          // console.log("CALL")
+          if(debug) console.log("CALL")
           const last = this.pop();
           if(getType(last)!=FlourUnboxedTypeCode.FUNC_PTR){
             throw new Error("Must call a function")
@@ -293,10 +328,13 @@ class DangoVM {
     throw new Error("Execution error")
   }
 
-  numericOnly():void{
-    if(getType(this.peek(0))!=FlourUnboxedTypeCode.FIXNUM || getType(this.peek(1))!=FlourUnboxedTypeCode.FIXNUM)
-      throw new Error("Can only add fixnum");
+  numericOnly(args:u32):void{
+    for(let i:u32=0;i<args;i++){
+      if(getType(this.peek(i))!=FlourUnboxedTypeCode.FIXNUM)
+        throw new Error("Operation is for fixnums only");
+    }
   }
+
 
   dispatchPrimitiveMethod(code: u32, args: u32):void{
     let sum:i32 = 0;
@@ -304,21 +342,21 @@ class DangoVM {
     const original_args = args;
     switch(code) {
       case FlourPrimitiveMethodCodes.ADD:
-        this.numericOnly()
+        this.numericOnly(args)
         while(args-->0){
           sum += this.popData()
         }
         this.pushInt(sum)
       break;
       case FlourPrimitiveMethodCodes.MULTIPLY:
-        this.numericOnly()
+        this.numericOnly(args)
         while(args-->0){
           prod *= this.popData()
         }
         this.pushInt(prod)
       break;
       case FlourPrimitiveMethodCodes.SUBTRACT:
-        this.numericOnly()
+        this.numericOnly(args)
         sum = getSignedData(this.stack[this.stackTop-args])
         while(args-->1){
           sum -= getSignedData(this.stack[this.stackTop-args])
@@ -327,7 +365,7 @@ class DangoVM {
         this.pushInt(sum)
       break;
       case FlourPrimitiveMethodCodes.DIVIDE:
-        this.numericOnly()
+        this.numericOnly(args)
         prod = getSignedData(this.stack[this.stackTop-args])
         while(args-->1){
           prod /= getSignedData(this.stack[this.stackTop-args])
@@ -335,27 +373,46 @@ class DangoVM {
         this.stackTop -= original_args
         this.pushInt(prod)
       break;
+      case FlourPrimitiveMethodCodes.NUMERICAL_EQ:
+        if(args!=2)
+          throw new Error("= must take 2 arguments")
+        this.numericOnly(args)
+
+        this.pushBool(this.pop()==this.pop())
+      break
+      case FlourPrimitiveMethodCodes.EQV:
+        if(args!=2)
+          throw new Error("eqv? must take 2 arguments")
+        this.pushBool(this.pop()==this.pop())
+      break
+      case FlourPrimitiveMethodCodes.LESS:
+        if(args!=2)
+          throw new Error("< must take 2 arguments")
+        this.numericOnly(args)
+        this.pushBool(this.popData()>this.popData())
+        break;
+      case FlourPrimitiveMethodCodes.LEQ:
+        if(args!=2)
+          throw new Error("<= must take 2 arguments")
+        this.numericOnly(args)
+        this.pushBool(this.popData()>=this.popData())
+        break;
+      case FlourPrimitiveMethodCodes.GREATER:
+        if(args!=2)
+          throw new Error("> must take 2 arguments")
+        this.numericOnly(args)
+        this.pushBool(this.popData()<this.popData())
+        break;
+      case FlourPrimitiveMethodCodes.GEQ:
+        if(args!=2)
+          throw new Error(">= must take 2 arguments")
+        this.numericOnly(args)
+        this.pushBool(this.popData()<=this.popData())
+        break;
       case FlourPrimitiveMethodCodes.PRINT:
         let output = "";
         while(args-->0){
-          const last = this.stack[this.stackTop-args-1]
-          const type = getType(last)
-          const data = getSignedData(last)
-          if(type == FlourUnboxedTypeCode.BOOLEAN){
-            output+=data>0? "true" : "false"
-          }
-          else if(type == FlourUnboxedTypeCode.CHARACTER){
-            output+=String.fromCharCode(data)
-          }
-          else if(type == FlourUnboxedTypeCode.FIXNUM){
-            output+=data.toString()
-          }
-          else if(type == FlourUnboxedTypeCode.NIL){
-            output+="null"
-          }
-          else if(type == FlourUnboxedTypeCode.FUNC_PTR){
-            output+="[lambda #" + getData(last).toString()+"]"
-          }
+          output += printUnboxed(this.stack[this.stackTop-args-1])
           if(args>0){
             output+=" "
           }
@@ -364,8 +421,55 @@ class DangoVM {
         this.log += output + "\n"
         console.log(output)
         this.pushNil()
-
       break;
+      case FlourPrimitiveMethodCodes.NOT:
+        if(args!=1)
+          throw new Error("not must take 1 argument")
+        if(getType(this.peek(0))!=FlourUnboxedTypeCode.BOOLEAN)
+          throw new Error("not must recieve boolean")
+        this.stack[this.stackTop-1]^=(1<<24)
+        break
+      case FlourPrimitiveMethodCodes.NEGATE:
+        if(args!=1)
+          throw new Error("negate must take 1 argument")
+        if(getType(this.peek(0))!=FlourUnboxedTypeCode.FIXNUM)
+          throw new Error("negate must recieve number")
+        this.pushInt(-this.popData())
+        break
+      case FlourPrimitiveMethodCodes.ABS:
+        if(args!=1)
+          throw new Error("abs must take 1 argument")
+        if(getType(this.peek(0))!=FlourUnboxedTypeCode.FIXNUM)
+          throw new Error("abs must recieve number")
+        this.pushInt(abs(this.popData()))
+        break
+      case FlourPrimitiveMethodCodes.IS_BOOLEAN:
+        if(args!=1)
+          throw new Error("boolean? must take 1 argument")
+        this.pushBool(getType(this.pop())==FlourUnboxedTypeCode.BOOLEAN)
+        break
+      case FlourPrimitiveMethodCodes.IS_FIXNUM:
+        if(args!=1)
+          throw new Error("number? must take 1 argument")
+        this.pushBool(getType(this.pop())==FlourUnboxedTypeCode.FIXNUM)
+        break
+      case FlourPrimitiveMethodCodes.IS_CHARACTER:
+        if(args!=1)
+          throw new Error("character? must take 1 argument")
+        this.pushBool(getType(this.pop())==FlourUnboxedTypeCode.CHARACTER)
+        break
+      case FlourPrimitiveMethodCodes.IS_NIL:
+        if(args!=1)
+          throw new Error("character? must take 1 argument")
+        this.pushBool(getType(this.pop())==FlourUnboxedTypeCode.NIL)
+        break
+      case FlourPrimitiveMethodCodes.IS_PROCEDURE:
+        if(args!=1)
+          throw new Error("character? must take 1 argument")
+        this.pushBool(getType(this.pop())==FlourUnboxedTypeCode.FUNC_PTR)
+        break
+      default:
+        throw new Error("Primitive " + code.toString() + " not defined");
     
     }
 

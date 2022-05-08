@@ -6,11 +6,11 @@
  (type $i32_i32_i32_=>_none (func (param i32 i32 i32)))
  (type $none_=>_none (func))
  (type $i32_i32_=>_i64 (func (param i32 i32) (result i64)))
- (type $i32_i32_i32_=>_i32 (func (param i32 i32 i32) (result i32)))
  (type $none_=>_i32 (func (result i32)))
+ (type $i64_=>_i32 (func (param i64) (result i32)))
+ (type $i32_i32_i32_=>_i32 (func (param i32 i32 i32) (result i32)))
  (type $i32_i64_=>_none (func (param i32 i64)))
  (type $i32_i32_i64_=>_none (func (param i32 i32 i64)))
- (type $i64_=>_i32 (func (param i64) (result i32)))
  (type $i32_i32_i32_i32_=>_none (func (param i32 i32 i32 i32)))
  (type $i32_i32_i32_i32_=>_i32 (func (param i32 i32 i32 i32) (result i32)))
  (type $i32_=>_i64 (func (param i32) (result i64)))
@@ -19,11 +19,9 @@
  (type $i64_i32_=>_i32 (func (param i64 i32) (result i32)))
  (type $i32_i64_i32_i32_=>_none (func (param i32 i64 i32 i32)))
  (type $i32_i32_i32_=>_i64 (func (param i32 i32 i32) (result i64)))
- (type $none_=>_i64 (func (result i64)))
  (type $i32_i32_i64_=>_i32 (func (param i32 i32 i64) (result i32)))
  (import "env" "abort" (func $~lib/builtins/abort (param i32 i32 i32 i32)))
  (import "env" "console.log" (func $~lib/bindings/dom/console.log (param i32)))
- (global $assembly/index/MAX_PROGRAM_MEMORY i32 (i32.const 16777216))
  (global $../flour/opcode/FlourOpcode.CONSTANT i32 (i32.const 0))
  (global $../flour/opcode/FlourOpcode.DEFINE_VARIABLE i32 (i32.const 1))
  (global $../flour/opcode/FlourOpcode.GET_VARIABLE i32 (i32.const 2))
@@ -79,6 +77,8 @@
  (global $assembly/index/INSTRUCTION_OPCODE_LENGTH i32 (i32.const 1))
  (global $assembly/index/INSTRUCTION_DATA_LENGTH i32 (i32.const 4))
  (global $assembly/index/vm (mut i32) (i32.const 0))
+ (global $assembly/index/debug i32 (i32.const 0))
+ (global $assembly/index/runResult (mut i64) (i64.const 0))
  (global $~lib/shared/runtime/Runtime.Stub i32 (i32.const 0))
  (global $~lib/shared/runtime/Runtime.Minimal i32 (i32.const 1))
  (global $~lib/shared/runtime/Runtime.Incremental i32 (i32.const 2))
@@ -96,10 +96,10 @@
  (global $~lib/native/ASC_RUNTIME i32 (i32.const 2))
  (global $~argumentsLength (mut i32) (i32.const 0))
  (global $~lib/native/ASC_SHRINK_LEVEL i32 (i32.const 0))
- (global $~lib/rt/__rtti_base i32 (i32.const 3952))
- (global $~lib/memory/__data_end i32 (i32.const 4060))
- (global $~lib/memory/__stack_pointer (mut i32) (i32.const 20444))
- (global $~lib/memory/__heap_base i32 (i32.const 20444))
+ (global $~lib/rt/__rtti_base i32 (i32.const 5440))
+ (global $~lib/memory/__data_end i32 (i32.const 5548))
+ (global $~lib/memory/__stack_pointer (mut i32) (i32.const 21932))
+ (global $~lib/memory/__heap_base i32 (i32.const 21932))
  (memory $0 1)
  (data (i32.const 12) ",\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\1c\00\00\00I\00n\00v\00a\00l\00i\00d\00 \00l\00e\00n\00g\00t\00h\00")
  (data (i32.const 60) "<\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00&\00\00\00~\00l\00i\00b\00/\00a\00r\00r\00a\00y\00b\00u\00f\00f\00e\00r\00.\00t\00s\00\00\00\00\00\00\00")
@@ -119,33 +119,52 @@
  (data (i32.const 796) "\1c\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\n\00\00\00E\00r\00r\00o\00r\00\00\00")
  (data (i32.const 828) "\1c\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\08\00\00\00b\00r\00u\00h\00\00\00\00\00")
  (data (i32.const 860) "|\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00^\00\00\00E\00l\00e\00m\00e\00n\00t\00 \00t\00y\00p\00e\00 \00m\00u\00s\00t\00 \00b\00e\00 \00n\00u\00l\00l\00a\00b\00l\00e\00 \00i\00f\00 \00a\00r\00r\00a\00y\00 \00i\00s\00 \00h\00o\00l\00e\00y\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00")
- (data (i32.const 988) "<\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00$\00\00\00K\00e\00y\00 \00d\00o\00e\00s\00 \00n\00o\00t\00 \00e\00x\00i\00s\00t\00\00\00\00\00\00\00\00\00")
- (data (i32.const 1052) ",\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\16\00\00\00~\00l\00i\00b\00/\00m\00a\00p\00.\00t\00s\00\00\00\00\00\00\00")
- (data (i32.const 1100) "<\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\1e\00\00\00u\00n\00e\00x\00p\00e\00c\00t\00e\00d\00 \00n\00u\00l\00l\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00")
- (data (i32.const 1164) "l\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00R\00\00\00T\00r\00i\00e\00d\00 \00g\00e\00t\00t\00i\00n\00g\00 \00v\00a\00r\00i\00a\00b\00l\00e\00 \00t\00h\00a\00t\00s\00 \00n\00o\00t\00 \00i\00n\00 \00s\00c\00o\00p\00e\00\00\00\00\00\00\00\00\00\00\00")
- (data (i32.const 1276) "l\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00R\00\00\00T\00r\00i\00e\00d\00 \00s\00e\00t\00t\00i\00n\00g\00 \00v\00a\00r\00i\00a\00b\00l\00e\00 \00t\00h\00a\00t\00s\00 \00n\00o\00t\00 \00i\00n\00 \00s\00c\00o\00p\00e\00\00\00\00\00\00\00\00\00\00\00")
- (data (i32.const 1388) "<\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00(\00\00\00M\00u\00s\00t\00 \00c\00a\00l\00l\00 \00a\00 \00f\00u\00n\00c\00t\00i\00o\00n\00\00\00\00\00")
- (data (i32.const 1452) "<\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00&\00\00\00C\00a\00n\00 \00o\00n\00l\00y\00 \00a\00d\00d\00 \00f\00i\00x\00n\00u\00m\00\00\00\00\00\00\00")
- (data (i32.const 1516) "\1c\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\08\00\00\00t\00r\00u\00e\00\00\00\00\00")
- (data (i32.const 1548) "\1c\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\n\00\00\00f\00a\00l\00s\00e\00\00\00")
- (data (i32.const 1580) "|\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00d\00\00\00t\00o\00S\00t\00r\00i\00n\00g\00(\00)\00 \00r\00a\00d\00i\00x\00 \00a\00r\00g\00u\00m\00e\00n\00t\00 \00m\00u\00s\00t\00 \00b\00e\00 \00b\00e\00t\00w\00e\00e\00n\00 \002\00 \00a\00n\00d\00 \003\006\00\00\00\00\00\00\00\00\00")
- (data (i32.const 1708) "<\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00&\00\00\00~\00l\00i\00b\00/\00u\00t\00i\00l\00/\00n\00u\00m\00b\00e\00r\00.\00t\00s\00\00\00\00\00\00\00")
- (data (i32.const 1772) "\1c\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\02\00\00\000\00\00\00\00\00\00\00\00\00\00\00")
- (data (i32.const 1804) "0\000\000\001\000\002\000\003\000\004\000\005\000\006\000\007\000\008\000\009\001\000\001\001\001\002\001\003\001\004\001\005\001\006\001\007\001\008\001\009\002\000\002\001\002\002\002\003\002\004\002\005\002\006\002\007\002\008\002\009\003\000\003\001\003\002\003\003\003\004\003\005\003\006\003\007\003\008\003\009\004\000\004\001\004\002\004\003\004\004\004\005\004\006\004\007\004\008\004\009\005\000\005\001\005\002\005\003\005\004\005\005\005\006\005\007\005\008\005\009\006\000\006\001\006\002\006\003\006\004\006\005\006\006\006\007\006\008\006\009\007\000\007\001\007\002\007\003\007\004\007\005\007\006\007\007\007\008\007\009\008\000\008\001\008\002\008\003\008\004\008\005\008\006\008\007\008\008\008\009\009\000\009\001\009\002\009\003\009\004\009\005\009\006\009\007\009\008\009\009\00")
- (data (i32.const 2204) "\1c\04\00\00\00\00\00\00\00\00\00\00\01\00\00\00\00\04\00\000\000\000\001\000\002\000\003\000\004\000\005\000\006\000\007\000\008\000\009\000\00a\000\00b\000\00c\000\00d\000\00e\000\00f\001\000\001\001\001\002\001\003\001\004\001\005\001\006\001\007\001\008\001\009\001\00a\001\00b\001\00c\001\00d\001\00e\001\00f\002\000\002\001\002\002\002\003\002\004\002\005\002\006\002\007\002\008\002\009\002\00a\002\00b\002\00c\002\00d\002\00e\002\00f\003\000\003\001\003\002\003\003\003\004\003\005\003\006\003\007\003\008\003\009\003\00a\003\00b\003\00c\003\00d\003\00e\003\00f\004\000\004\001\004\002\004\003\004\004\004\005\004\006\004\007\004\008\004\009\004\00a\004\00b\004\00c\004\00d\004\00e\004\00f\005\000\005\001\005\002\005\003\005\004\005\005\005\006\005\007\005\008\005\009\005\00a\005\00b\005\00c\005\00d\005\00e\005\00f\006\000\006\001\006\002\006\003\006\004\006\005\006\006\006\007\006\008\006\009\006\00a\006\00b\006\00c\006\00d\006\00e\006\00f\007\000\007\001\007\002\007\003\007\004\007\005\007\006\007\007\007\008\007\009\007\00a\007\00b\007\00c\007\00d\007\00e\007\00f\008\000\008\001\008\002\008\003\008\004\008\005\008\006\008\007\008\008\008\009\008\00a\008\00b\008\00c\008\00d\008\00e\008\00f\009\000\009\001\009\002\009\003\009\004\009\005\009\006\009\007\009\008\009\009\009\00a\009\00b\009\00c\009\00d\009\00e\009\00f\00a\000\00a\001\00a\002\00a\003\00a\004\00a\005\00a\006\00a\007\00a\008\00a\009\00a\00a\00a\00b\00a\00c\00a\00d\00a\00e\00a\00f\00b\000\00b\001\00b\002\00b\003\00b\004\00b\005\00b\006\00b\007\00b\008\00b\009\00b\00a\00b\00b\00b\00c\00b\00d\00b\00e\00b\00f\00c\000\00c\001\00c\002\00c\003\00c\004\00c\005\00c\006\00c\007\00c\008\00c\009\00c\00a\00c\00b\00c\00c\00c\00d\00c\00e\00c\00f\00d\000\00d\001\00d\002\00d\003\00d\004\00d\005\00d\006\00d\007\00d\008\00d\009\00d\00a\00d\00b\00d\00c\00d\00d\00d\00e\00d\00f\00e\000\00e\001\00e\002\00e\003\00e\004\00e\005\00e\006\00e\007\00e\008\00e\009\00e\00a\00e\00b\00e\00c\00e\00d\00e\00e\00e\00f\00f\000\00f\001\00f\002\00f\003\00f\004\00f\005\00f\006\00f\007\00f\008\00f\009\00f\00a\00f\00b\00f\00c\00f\00d\00f\00e\00f\00f\00\00\00\00\00\00\00\00\00\00\00\00\00")
- (data (i32.const 3260) "\\\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00H\00\00\000\001\002\003\004\005\006\007\008\009\00a\00b\00c\00d\00e\00f\00g\00h\00i\00j\00k\00l\00m\00n\00o\00p\00q\00r\00s\00t\00u\00v\00w\00x\00y\00z\00\00\00\00\00")
- (data (i32.const 3356) "\1c\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\08\00\00\00n\00u\00l\00l\00\00\00\00\00")
- (data (i32.const 3388) ",\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\12\00\00\00[\00l\00a\00m\00b\00d\00a\00 \00#\00\00\00\00\00\00\00\00\00\00\00")
- (data (i32.const 3436) "\1c\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\02\00\00\00]\00\00\00\00\00\00\00\00\00\00\00")
- (data (i32.const 3468) "\1c\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\02\00\00\00 \00\00\00\00\00\00\00\00\00\00\00")
- (data (i32.const 3500) "\1c\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\02\00\00\00\n\00\00\00\00\00\00\00\00\00\00\00")
- (data (i32.const 3532) "l\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\\\00\00\00C\00a\00l\00l\00e\00d\00 \00f\00u\00n\00c\00t\00i\00o\00n\00 \00w\00i\00t\00h\00 \00w\00r\00o\00n\00g\00 \00n\00u\00m\00b\00e\00r\00 \00o\00f\00 \00a\00r\00g\00u\00m\00e\00n\00t\00s\00")
- (data (i32.const 3644) ",\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\0e\00\00\00O\00p\00c\00o\00d\00e\00 \00\00\00\00\00\00\00\00\00\00\00\00\00\00\00")
- (data (i32.const 3692) "<\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00 \00\00\00 \00n\00o\00t\00 \00i\00m\00p\00l\00e\00m\00e\00n\00t\00e\00d\00\00\00\00\00\00\00\00\00\00\00\00\00")
- (data (i32.const 3756) "<\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\1e\00\00\00E\00x\00e\00c\00u\00t\00i\00o\00n\00 \00e\00r\00r\00o\00r\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00")
- (data (i32.const 3820) "<\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00*\00\00\00O\00b\00j\00e\00c\00t\00 \00a\00l\00r\00e\00a\00d\00y\00 \00p\00i\00n\00n\00e\00d\00\00\00")
- (data (i32.const 3884) "<\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00(\00\00\00O\00b\00j\00e\00c\00t\00 \00i\00s\00 \00n\00o\00t\00 \00p\00i\00n\00n\00e\00d\00\00\00\00\00")
- (data (i32.const 3952) "\0d\00\00\00 \00\00\00\00\00\00\00 \00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\01\02\00\00\02\00\00\00\00\00\00\00\00\00\00\00A\00\00\00\02\00\00\00\02A\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\10\02\02\00\00\00\00\00\02A\00\00\00\00\00\00\00\00\00\00\00\00\00\00")
+ (data (i32.const 988) "L\00\00\00\00\00\00\00\00\00\00\00\01\00\00\008\00\00\00E\00r\00r\00o\00r\00 \00c\00a\00n\00 \00o\00n\00l\00y\00 \00n\00o\00t\00 \00a\00 \00b\00o\00o\00l\00e\00a\00n\00\00\00\00\00")
+ (data (i32.const 1068) "<\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00$\00\00\00K\00e\00y\00 \00d\00o\00e\00s\00 \00n\00o\00t\00 \00e\00x\00i\00s\00t\00\00\00\00\00\00\00\00\00")
+ (data (i32.const 1132) ",\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\16\00\00\00~\00l\00i\00b\00/\00m\00a\00p\00.\00t\00s\00\00\00\00\00\00\00")
+ (data (i32.const 1180) "<\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\1e\00\00\00u\00n\00e\00x\00p\00e\00c\00t\00e\00d\00 \00n\00u\00l\00l\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00")
+ (data (i32.const 1244) "l\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00R\00\00\00T\00r\00i\00e\00d\00 \00g\00e\00t\00t\00i\00n\00g\00 \00v\00a\00r\00i\00a\00b\00l\00e\00 \00t\00h\00a\00t\00s\00 \00n\00o\00t\00 \00i\00n\00 \00s\00c\00o\00p\00e\00\00\00\00\00\00\00\00\00\00\00")
+ (data (i32.const 1356) "l\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00R\00\00\00T\00r\00i\00e\00d\00 \00s\00e\00t\00t\00i\00n\00g\00 \00v\00a\00r\00i\00a\00b\00l\00e\00 \00t\00h\00a\00t\00s\00 \00n\00o\00t\00 \00i\00n\00 \00s\00c\00o\00p\00e\00\00\00\00\00\00\00\00\00\00\00")
+ (data (i32.const 1468) "<\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00(\00\00\00M\00u\00s\00t\00 \00c\00a\00l\00l\00 \00a\00 \00f\00u\00n\00c\00t\00i\00o\00n\00\00\00\00\00")
+ (data (i32.const 1532) "L\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00:\00\00\00O\00p\00e\00r\00a\00t\00i\00o\00n\00 \00i\00s\00 \00f\00o\00r\00 \00f\00i\00x\00n\00u\00m\00s\00 \00o\00n\00l\00y\00\00\00")
+ (data (i32.const 1612) "L\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00.\00\00\00=\00 \00m\00u\00s\00t\00 \00t\00a\00k\00e\00 \002\00 \00a\00r\00g\00u\00m\00e\00n\00t\00s\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00")
+ (data (i32.const 1692) "L\00\00\00\00\00\00\00\00\00\00\00\01\00\00\004\00\00\00e\00q\00v\00?\00 \00m\00u\00s\00t\00 \00t\00a\00k\00e\00 \002\00 \00a\00r\00g\00u\00m\00e\00n\00t\00s\00\00\00\00\00\00\00\00\00")
+ (data (i32.const 1772) "L\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00.\00\00\00<\00 \00m\00u\00s\00t\00 \00t\00a\00k\00e\00 \002\00 \00a\00r\00g\00u\00m\00e\00n\00t\00s\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00")
+ (data (i32.const 1852) "L\00\00\00\00\00\00\00\00\00\00\00\01\00\00\000\00\00\00<\00=\00 \00m\00u\00s\00t\00 \00t\00a\00k\00e\00 \002\00 \00a\00r\00g\00u\00m\00e\00n\00t\00s\00\00\00\00\00\00\00\00\00\00\00\00\00")
+ (data (i32.const 1932) "L\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00.\00\00\00>\00 \00m\00u\00s\00t\00 \00t\00a\00k\00e\00 \002\00 \00a\00r\00g\00u\00m\00e\00n\00t\00s\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00")
+ (data (i32.const 2012) "L\00\00\00\00\00\00\00\00\00\00\00\01\00\00\000\00\00\00>\00=\00 \00m\00u\00s\00t\00 \00t\00a\00k\00e\00 \002\00 \00a\00r\00g\00u\00m\00e\00n\00t\00s\00\00\00\00\00\00\00\00\00\00\00\00\00")
+ (data (i32.const 2092) "\1c\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\08\00\00\00t\00r\00u\00e\00\00\00\00\00")
+ (data (i32.const 2124) "\1c\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\n\00\00\00f\00a\00l\00s\00e\00\00\00")
+ (data (i32.const 2156) "|\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00d\00\00\00t\00o\00S\00t\00r\00i\00n\00g\00(\00)\00 \00r\00a\00d\00i\00x\00 \00a\00r\00g\00u\00m\00e\00n\00t\00 \00m\00u\00s\00t\00 \00b\00e\00 \00b\00e\00t\00w\00e\00e\00n\00 \002\00 \00a\00n\00d\00 \003\006\00\00\00\00\00\00\00\00\00")
+ (data (i32.const 2284) "<\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00&\00\00\00~\00l\00i\00b\00/\00u\00t\00i\00l\00/\00n\00u\00m\00b\00e\00r\00.\00t\00s\00\00\00\00\00\00\00")
+ (data (i32.const 2348) "\1c\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\02\00\00\000\00\00\00\00\00\00\00\00\00\00\00")
+ (data (i32.const 2380) "0\000\000\001\000\002\000\003\000\004\000\005\000\006\000\007\000\008\000\009\001\000\001\001\001\002\001\003\001\004\001\005\001\006\001\007\001\008\001\009\002\000\002\001\002\002\002\003\002\004\002\005\002\006\002\007\002\008\002\009\003\000\003\001\003\002\003\003\003\004\003\005\003\006\003\007\003\008\003\009\004\000\004\001\004\002\004\003\004\004\004\005\004\006\004\007\004\008\004\009\005\000\005\001\005\002\005\003\005\004\005\005\005\006\005\007\005\008\005\009\006\000\006\001\006\002\006\003\006\004\006\005\006\006\006\007\006\008\006\009\007\000\007\001\007\002\007\003\007\004\007\005\007\006\007\007\007\008\007\009\008\000\008\001\008\002\008\003\008\004\008\005\008\006\008\007\008\008\008\009\009\000\009\001\009\002\009\003\009\004\009\005\009\006\009\007\009\008\009\009\00")
+ (data (i32.const 2780) "\1c\04\00\00\00\00\00\00\00\00\00\00\01\00\00\00\00\04\00\000\000\000\001\000\002\000\003\000\004\000\005\000\006\000\007\000\008\000\009\000\00a\000\00b\000\00c\000\00d\000\00e\000\00f\001\000\001\001\001\002\001\003\001\004\001\005\001\006\001\007\001\008\001\009\001\00a\001\00b\001\00c\001\00d\001\00e\001\00f\002\000\002\001\002\002\002\003\002\004\002\005\002\006\002\007\002\008\002\009\002\00a\002\00b\002\00c\002\00d\002\00e\002\00f\003\000\003\001\003\002\003\003\003\004\003\005\003\006\003\007\003\008\003\009\003\00a\003\00b\003\00c\003\00d\003\00e\003\00f\004\000\004\001\004\002\004\003\004\004\004\005\004\006\004\007\004\008\004\009\004\00a\004\00b\004\00c\004\00d\004\00e\004\00f\005\000\005\001\005\002\005\003\005\004\005\005\005\006\005\007\005\008\005\009\005\00a\005\00b\005\00c\005\00d\005\00e\005\00f\006\000\006\001\006\002\006\003\006\004\006\005\006\006\006\007\006\008\006\009\006\00a\006\00b\006\00c\006\00d\006\00e\006\00f\007\000\007\001\007\002\007\003\007\004\007\005\007\006\007\007\007\008\007\009\007\00a\007\00b\007\00c\007\00d\007\00e\007\00f\008\000\008\001\008\002\008\003\008\004\008\005\008\006\008\007\008\008\008\009\008\00a\008\00b\008\00c\008\00d\008\00e\008\00f\009\000\009\001\009\002\009\003\009\004\009\005\009\006\009\007\009\008\009\009\009\00a\009\00b\009\00c\009\00d\009\00e\009\00f\00a\000\00a\001\00a\002\00a\003\00a\004\00a\005\00a\006\00a\007\00a\008\00a\009\00a\00a\00a\00b\00a\00c\00a\00d\00a\00e\00a\00f\00b\000\00b\001\00b\002\00b\003\00b\004\00b\005\00b\006\00b\007\00b\008\00b\009\00b\00a\00b\00b\00b\00c\00b\00d\00b\00e\00b\00f\00c\000\00c\001\00c\002\00c\003\00c\004\00c\005\00c\006\00c\007\00c\008\00c\009\00c\00a\00c\00b\00c\00c\00c\00d\00c\00e\00c\00f\00d\000\00d\001\00d\002\00d\003\00d\004\00d\005\00d\006\00d\007\00d\008\00d\009\00d\00a\00d\00b\00d\00c\00d\00d\00d\00e\00d\00f\00e\000\00e\001\00e\002\00e\003\00e\004\00e\005\00e\006\00e\007\00e\008\00e\009\00e\00a\00e\00b\00e\00c\00e\00d\00e\00e\00e\00f\00f\000\00f\001\00f\002\00f\003\00f\004\00f\005\00f\006\00f\007\00f\008\00f\009\00f\00a\00f\00b\00f\00c\00f\00d\00f\00e\00f\00f\00\00\00\00\00\00\00\00\00\00\00\00\00")
+ (data (i32.const 3836) "\\\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00H\00\00\000\001\002\003\004\005\006\007\008\009\00a\00b\00c\00d\00e\00f\00g\00h\00i\00j\00k\00l\00m\00n\00o\00p\00q\00r\00s\00t\00u\00v\00w\00x\00y\00z\00\00\00\00\00")
+ (data (i32.const 3932) "\1c\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\08\00\00\00n\00u\00l\00l\00\00\00\00\00")
+ (data (i32.const 3964) ",\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\12\00\00\00[\00l\00a\00m\00b\00d\00a\00 \00#\00\00\00\00\00\00\00\00\00\00\00")
+ (data (i32.const 4012) "\1c\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\02\00\00\00]\00\00\00\00\00\00\00\00\00\00\00")
+ (data (i32.const 4044) "L\00\00\00\00\00\00\00\00\00\00\00\01\00\00\000\00\00\00C\00a\00n\00t\00 \00p\00r\00i\00n\00t\00 \00u\00n\00b\00o\00x\00e\00d\00 \00t\00y\00p\00e\00 \00\00\00\00\00\00\00\00\00\00\00\00\00")
+ (data (i32.const 4124) "\1c\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\02\00\00\00 \00\00\00\00\00\00\00\00\00\00\00")
+ (data (i32.const 4156) "\1c\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\02\00\00\00\n\00\00\00\00\00\00\00\00\00\00\00")
+ (data (i32.const 4188) "L\00\00\00\00\00\00\00\00\00\00\00\01\00\00\000\00\00\00n\00o\00t\00 \00m\00u\00s\00t\00 \00t\00a\00k\00e\00 \001\00 \00a\00r\00g\00u\00m\00e\00n\00t\00\00\00\00\00\00\00\00\00\00\00\00\00")
+ (data (i32.const 4268) "L\00\00\00\00\00\00\00\00\00\00\00\01\00\00\000\00\00\00n\00o\00t\00 \00m\00u\00s\00t\00 \00r\00e\00c\00i\00e\00v\00e\00 \00b\00o\00o\00l\00e\00a\00n\00\00\00\00\00\00\00\00\00\00\00\00\00")
+ (data (i32.const 4348) "L\00\00\00\00\00\00\00\00\00\00\00\01\00\00\006\00\00\00n\00e\00g\00a\00t\00e\00 \00m\00u\00s\00t\00 \00t\00a\00k\00e\00 \001\00 \00a\00r\00g\00u\00m\00e\00n\00t\00\00\00\00\00\00\00")
+ (data (i32.const 4428) "L\00\00\00\00\00\00\00\00\00\00\00\01\00\00\004\00\00\00n\00e\00g\00a\00t\00e\00 \00m\00u\00s\00t\00 \00r\00e\00c\00i\00e\00v\00e\00 \00n\00u\00m\00b\00e\00r\00\00\00\00\00\00\00\00\00")
+ (data (i32.const 4508) "L\00\00\00\00\00\00\00\00\00\00\00\01\00\00\000\00\00\00a\00b\00s\00 \00m\00u\00s\00t\00 \00t\00a\00k\00e\00 \001\00 \00a\00r\00g\00u\00m\00e\00n\00t\00\00\00\00\00\00\00\00\00\00\00\00\00")
+ (data (i32.const 4588) "L\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00.\00\00\00a\00b\00s\00 \00m\00u\00s\00t\00 \00r\00e\00c\00i\00e\00v\00e\00 \00n\00u\00m\00b\00e\00r\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00")
+ (data (i32.const 4668) "L\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00:\00\00\00b\00o\00o\00l\00e\00a\00n\00?\00 \00m\00u\00s\00t\00 \00t\00a\00k\00e\00 \001\00 \00a\00r\00g\00u\00m\00e\00n\00t\00\00\00")
+ (data (i32.const 4748) "L\00\00\00\00\00\00\00\00\00\00\00\01\00\00\008\00\00\00n\00u\00m\00b\00e\00r\00?\00 \00m\00u\00s\00t\00 \00t\00a\00k\00e\00 \001\00 \00a\00r\00g\00u\00m\00e\00n\00t\00\00\00\00\00")
+ (data (i32.const 4828) "\\\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00>\00\00\00c\00h\00a\00r\00a\00c\00t\00e\00r\00?\00 \00m\00u\00s\00t\00 \00t\00a\00k\00e\00 \001\00 \00a\00r\00g\00u\00m\00e\00n\00t\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00")
+ (data (i32.const 4924) ",\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\14\00\00\00P\00r\00i\00m\00i\00t\00i\00v\00e\00 \00\00\00\00\00\00\00\00\00")
+ (data (i32.const 4972) ",\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\18\00\00\00 \00n\00o\00t\00 \00d\00e\00f\00i\00n\00e\00d\00\00\00\00\00")
+ (data (i32.const 5020) "l\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\\\00\00\00C\00a\00l\00l\00e\00d\00 \00f\00u\00n\00c\00t\00i\00o\00n\00 \00w\00i\00t\00h\00 \00w\00r\00o\00n\00g\00 \00n\00u\00m\00b\00e\00r\00 \00o\00f\00 \00a\00r\00g\00u\00m\00e\00n\00t\00s\00")
+ (data (i32.const 5132) ",\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\0e\00\00\00O\00p\00c\00o\00d\00e\00 \00\00\00\00\00\00\00\00\00\00\00\00\00\00\00")
+ (data (i32.const 5180) "<\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00 \00\00\00 \00n\00o\00t\00 \00i\00m\00p\00l\00e\00m\00e\00n\00t\00e\00d\00\00\00\00\00\00\00\00\00\00\00\00\00")
+ (data (i32.const 5244) "<\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00\1e\00\00\00E\00x\00e\00c\00u\00t\00i\00o\00n\00 \00e\00r\00r\00o\00r\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00")
+ (data (i32.const 5308) "<\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00*\00\00\00O\00b\00j\00e\00c\00t\00 \00a\00l\00r\00e\00a\00d\00y\00 \00p\00i\00n\00n\00e\00d\00\00\00")
+ (data (i32.const 5372) "<\00\00\00\00\00\00\00\00\00\00\00\01\00\00\00(\00\00\00O\00b\00j\00e\00c\00t\00 \00i\00s\00 \00n\00o\00t\00 \00p\00i\00n\00n\00e\00d\00\00\00\00\00")
+ (data (i32.const 5440) "\0d\00\00\00 \00\00\00\00\00\00\00 \00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\01\02\00\00\02\00\00\00\00\00\00\00\00\00\00\00A\00\00\00\02\00\00\00\02A\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\10\02\02\00\00\00\00\00\02A\00\00\00\00\00\00\00\00\00\00\00\00\00\00")
  (table $0 1 1 funcref)
  (elem $0 (i32.const 1))
  (export "getConsole" (func $assembly/index/getConsole))
@@ -3239,6 +3258,20 @@
   i32.add
   i64.load
  )
+ (func $assembly/index/getData (param $0 i64) (result i32)
+  local.get $0
+  i64.const 8
+  i64.shl
+  i64.const 32
+  i64.shr_u
+  i32.wrap_i64
+ )
+ (func $assembly/index/getType (param $0 i64) (result i32)
+  local.get $0
+  i64.const 56
+  i64.shr_u
+  i32.wrap_i64
+ )
  (func $~lib/map/Map<u32,u64>#has (param $0 i32) (param $1 i32) (result i32)
   local.get $0
   local.get $1
@@ -3259,8 +3292,8 @@
   local.get $2
   i32.eqz
   if
-   i32.const 1008
-   i32.const 1072
+   i32.const 1088
+   i32.const 1152
    i32.const 105
    i32.const 17
    call $~lib/builtins/abort
@@ -3278,44 +3311,38 @@
   call $assembly/index/makeUnboxed
   call $assembly/index/DangoVM#push
  )
- (func $assembly/index/getType (param $0 i64) (result i32)
-  local.get $0
-  i64.const 56
-  i64.shr_u
-  i32.wrap_i64
- )
- (func $assembly/index/getData (param $0 i64) (result i32)
-  local.get $0
-  i64.const 8
-  i64.shl
-  i64.const 32
-  i64.shr_u
-  i32.wrap_i64
- )
- (func $assembly/index/DangoVM#numericOnly (param $0 i32)
-  local.get $0
+ (func $assembly/index/DangoVM#numericOnly (param $0 i32) (param $1 i32)
+  (local $2 i32)
+  (local $3 i32)
   i32.const 0
-  call $assembly/index/DangoVM#peek
-  call $assembly/index/getType
-  global.get $../flour/typecode/FlourUnboxedTypeCode.FIXNUM
-  i32.ne
-  if (result i32)
-   i32.const 1
-  else
-   local.get $0
-   i32.const 1
-   call $assembly/index/DangoVM#peek
-   call $assembly/index/getType
-   global.get $../flour/typecode/FlourUnboxedTypeCode.FIXNUM
-   i32.ne
-  end
-  if
-   i32.const 1472
-   i32.const 752
-   i32.const 298
-   i32.const 7
-   call $~lib/builtins/abort
-   unreachable
+  local.set $2
+  loop $for-loop|0
+   local.get $2
+   local.get $1
+   i32.lt_u
+   local.set $3
+   local.get $3
+   if
+    local.get $0
+    local.get $2
+    call $assembly/index/DangoVM#peek
+    call $assembly/index/getType
+    global.get $../flour/typecode/FlourUnboxedTypeCode.FIXNUM
+    i32.ne
+    if
+     i32.const 1552
+     i32.const 752
+     i32.const 334
+     i32.const 9
+     call $~lib/builtins/abort
+     unreachable
+    end
+    local.get $2
+    i32.const 1
+    i32.add
+    local.set $2
+    br $for-loop|0
+   end
   end
  )
  (func $assembly/index/getSignedData (param $0 i64) (result i32)
@@ -3335,18 +3362,18 @@
   call $assembly/index/makeUnboxed
   call $assembly/index/DangoVM#push
  )
- (func $~lib/string/String#get:length (param $0 i32) (result i32)
+ (func $assembly/index/DangoVM#pushBool (param $0 i32) (param $1 i32)
   local.get $0
-  i32.const 20
-  i32.sub
-  i32.load offset=16
-  i32.const 1
-  i32.shr_u
- )
- (func $~lib/string/String.__concat (param $0 i32) (param $1 i32) (result i32)
-  local.get $0
+  global.get $../flour/typecode/FlourUnboxedTypeCode.BOOLEAN
+  i64.extend_i32_s
   local.get $1
-  call $~lib/string/String#concat
+  if (result i64)
+   i64.const 1
+  else
+   i64.const 0
+  end
+  call $assembly/index/makeUnboxed
+  call $assembly/index/DangoVM#push
  )
  (func $~lib/string/String.fromCharCode@varargs (param $0 i32) (param $1 i32) (result i32)
   block $1of1
@@ -3456,14 +3483,14 @@
     i32.const 100
     i32.rem_u
     local.set $7
-    i32.const 1804
+    i32.const 2380
     local.get $6
     i32.const 2
     i32.shl
     i32.add
     i64.load32_u
     local.set $8
-    i32.const 1804
+    i32.const 2380
     local.get $7
     i32.const 2
     i32.shl
@@ -3506,7 +3533,7 @@
    i32.const 2
    i32.sub
    local.set $2
-   i32.const 1804
+   i32.const 2380
    local.get $10
    i32.const 2
    i32.shl
@@ -3529,7 +3556,7 @@
    i32.const 2
    i32.sub
    local.set $2
-   i32.const 1804
+   i32.const 2380
    local.get $1
    i32.const 2
    i32.shl
@@ -3579,7 +3606,7 @@
     i32.const 1
     i32.shl
     i32.add
-    i32.const 2224
+    i32.const 2800
     local.get $1
     i32.wrap_i64
     i32.const 255
@@ -3601,7 +3628,7 @@
   i32.and
   if
    local.get $0
-   i32.const 2224
+   i32.const 2800
    local.get $1
    i32.wrap_i64
    i32.const 6
@@ -3723,7 +3750,7 @@
     i32.const 1
     i32.shl
     i32.add
-    i32.const 3280
+    i32.const 3856
     local.get $1
     local.get $6
     i64.and
@@ -3757,7 +3784,7 @@
     i32.const 1
     i32.shl
     i32.add
-    i32.const 3280
+    i32.const 3856
     local.get $1
     local.get $6
     local.get $4
@@ -3787,6 +3814,19 @@
   local.get $0
   local.get $1
   call $~lib/util/number/utoa32
+ )
+ (func $~lib/string/String#get:length (param $0 i32) (result i32)
+  local.get $0
+  i32.const 20
+  i32.sub
+  i32.load offset=16
+  i32.const 1
+  i32.shr_u
+ )
+ (func $~lib/string/String.__concat (param $0 i32) (param $1 i32) (result i32)
+  local.get $0
+  local.get $1
+  call $~lib/string/String#concat
  )
  (func $~lib/console/console.log (param $0 i32)
   i32.const 0
@@ -3822,7 +3862,7 @@
    i32.const 3
    i32.eq
    if
-    i32.const 3840
+    i32.const 5328
     i32.const 208
     i32.const 337
     i32.const 7
@@ -3854,7 +3894,7 @@
   i32.const 3
   i32.ne
   if
-   i32.const 3904
+   i32.const 5392
    i32.const 208
    i32.const 351
    i32.const 5
@@ -3945,22 +3985,22 @@
   i32.const 880
   local.get $0
   call $~lib/rt/itcms/__visit
-  i32.const 1008
+  i32.const 1088
   local.get $0
   call $~lib/rt/itcms/__visit
   i32.const 144
   local.get $0
   call $~lib/rt/itcms/__visit
-  i32.const 3840
+  i32.const 5328
   local.get $0
   call $~lib/rt/itcms/__visit
-  i32.const 3904
+  i32.const 5392
   local.get $0
   call $~lib/rt/itcms/__visit
-  i32.const 2224
+  i32.const 2800
   local.get $0
   call $~lib/rt/itcms/__visit
-  i32.const 3280
+  i32.const 3856
   local.get $0
   call $~lib/rt/itcms/__visit
  )
@@ -4330,8 +4370,8 @@
   global.get $~lib/memory/__data_end
   i32.lt_s
   if
-   i32.const 20464
-   i32.const 20512
+   i32.const 21952
+   i32.const 22000
    i32.const 1
    i32.const 1
    call $~lib/builtins/abort
@@ -4556,6 +4596,8 @@
   local.get $0
   i32.const 0
   i32.const 1024
+  i32.const 256
+  i32.mul
   call $~lib/typedarray/Uint64Array#constructor
   call $assembly/index/DangoVM#set:stack
   local.get $0
@@ -4644,7 +4686,7 @@
   if
    i32.const 688
    i32.const 752
-   i32.const 135
+   i32.const 157
    i32.const 7
    call $~lib/builtins/abort
    unreachable
@@ -4818,6 +4860,38 @@
   global.set $~lib/memory/__stack_pointer
   local.get $3
  )
+ (func $assembly/index/DangoVM#peek (param $0 i32) (param $1 i32) (result i64)
+  (local $2 i32)
+  (local $3 i64)
+  global.get $~lib/memory/__stack_pointer
+  i32.const 4
+  i32.sub
+  global.set $~lib/memory/__stack_pointer
+  call $~stack_check
+  global.get $~lib/memory/__stack_pointer
+  i32.const 0
+  i32.store
+  local.get $0
+  i32.load
+  local.set $2
+  global.get $~lib/memory/__stack_pointer
+  local.get $2
+  i32.store
+  local.get $2
+  local.get $0
+  i32.load offset=8
+  local.get $1
+  i32.sub
+  i32.const 1
+  i32.sub
+  call $~lib/typedarray/Uint64Array#__get
+  local.set $3
+  global.get $~lib/memory/__stack_pointer
+  i32.const 4
+  i32.add
+  global.set $~lib/memory/__stack_pointer
+  local.get $3
+ )
  (func $assembly/index/Environment#get (param $0 i32) (param $1 i32) (result i64)
   (local $2 i32)
   (local $3 i32)
@@ -4871,9 +4945,9 @@
    if (result i32)
     local.get $2
    else
-    i32.const 1120
+    i32.const 1200
     i32.const 752
-    i32.const 82
+    i32.const 104
     i32.const 28
     call $~lib/builtins/abort
     unreachable
@@ -4893,9 +4967,9 @@
    local.get $4
    return
   end
-  i32.const 1184
+  i32.const 1264
   i32.const 752
-  i32.const 84
+  i32.const 106
   i32.const 5
   call $~lib/builtins/abort
   unreachable
@@ -4979,9 +5053,9 @@
     if (result i32)
      local.get $3
     else
-     i32.const 1120
+     i32.const 1200
      i32.const 752
-     i32.const 92
+     i32.const 114
      i32.const 21
      call $~lib/builtins/abort
      unreachable
@@ -4995,9 +5069,9 @@
     local.get $2
     call $assembly/index/Environment#set
    else
-    i32.const 1296
+    i32.const 1376
     i32.const 752
-    i32.const 95
+    i32.const 117
     i32.const 7
     call $~lib/builtins/abort
     unreachable
@@ -5018,6 +5092,8 @@
   global.get $~lib/memory/__stack_pointer
   i64.const 0
   i64.store
+  global.get $assembly/index/debug
+  drop
   local.get $0
   i32.load
   local.set $3
@@ -5047,38 +5123,6 @@
   i32.const 8
   i32.add
   global.set $~lib/memory/__stack_pointer
- )
- (func $assembly/index/DangoVM#peek (param $0 i32) (param $1 i32) (result i64)
-  (local $2 i32)
-  (local $3 i64)
-  global.get $~lib/memory/__stack_pointer
-  i32.const 4
-  i32.sub
-  global.set $~lib/memory/__stack_pointer
-  call $~stack_check
-  global.get $~lib/memory/__stack_pointer
-  i32.const 0
-  i32.store
-  local.get $0
-  i32.load
-  local.set $2
-  global.get $~lib/memory/__stack_pointer
-  local.get $2
-  i32.store
-  local.get $2
-  local.get $0
-  i32.load offset=8
-  local.get $1
-  i32.sub
-  i32.const 1
-  i32.sub
-  call $~lib/typedarray/Uint64Array#__get
-  local.set $3
-  global.get $~lib/memory/__stack_pointer
-  i32.const 4
-  i32.add
-  global.set $~lib/memory/__stack_pointer
-  local.get $3
  )
  (func $assembly/index/DangoVM#popData (param $0 i32) (result i32)
   (local $1 i32)
@@ -5116,24 +5160,172 @@
   global.set $~lib/memory/__stack_pointer
   local.get $2
  )
+ (func $assembly/index/printUnboxed (param $0 i64) (result i32)
+  (local $1 i32)
+  (local $2 i32)
+  (local $3 i32)
+  global.get $~lib/memory/__stack_pointer
+  i32.const 16
+  i32.sub
+  global.set $~lib/memory/__stack_pointer
+  call $~stack_check
+  global.get $~lib/memory/__stack_pointer
+  i64.const 0
+  i64.store
+  global.get $~lib/memory/__stack_pointer
+  i64.const 0
+  i64.store offset=8
+  local.get $0
+  call $assembly/index/getType
+  local.set $1
+  local.get $0
+  call $assembly/index/getSignedData
+  local.set $2
+  local.get $1
+  global.get $../flour/typecode/FlourUnboxedTypeCode.BOOLEAN
+  i32.eq
+  if
+   local.get $2
+   i32.const 0
+   i32.gt_s
+   if (result i32)
+    i32.const 2112
+   else
+    i32.const 2144
+   end
+   local.set $3
+   global.get $~lib/memory/__stack_pointer
+   i32.const 16
+   i32.add
+   global.set $~lib/memory/__stack_pointer
+   local.get $3
+   return
+  else
+   local.get $1
+   global.get $../flour/typecode/FlourUnboxedTypeCode.CHARACTER
+   i32.eq
+   if
+    local.get $2
+    i32.const 1
+    global.set $~argumentsLength
+    i32.const 0
+    call $~lib/string/String.fromCharCode@varargs
+    local.set $3
+    global.get $~lib/memory/__stack_pointer
+    i32.const 16
+    i32.add
+    global.set $~lib/memory/__stack_pointer
+    local.get $3
+    return
+   else
+    local.get $1
+    global.get $../flour/typecode/FlourUnboxedTypeCode.FIXNUM
+    i32.eq
+    if
+     local.get $2
+     i32.const 10
+     call $~lib/number/I32#toString
+     local.set $3
+     global.get $~lib/memory/__stack_pointer
+     i32.const 16
+     i32.add
+     global.set $~lib/memory/__stack_pointer
+     local.get $3
+     return
+    else
+     local.get $1
+     global.get $../flour/typecode/FlourUnboxedTypeCode.NIL
+     i32.eq
+     if
+      i32.const 3952
+      local.set $3
+      global.get $~lib/memory/__stack_pointer
+      i32.const 16
+      i32.add
+      global.set $~lib/memory/__stack_pointer
+      local.get $3
+      return
+     else
+      local.get $1
+      global.get $../flour/typecode/FlourUnboxedTypeCode.FUNC_PTR
+      i32.eq
+      if
+       i32.const 3984
+       local.set $3
+       global.get $~lib/memory/__stack_pointer
+       local.get $3
+       i32.store offset=8
+       local.get $3
+       local.get $0
+       call $assembly/index/getData
+       i32.const 10
+       call $~lib/number/U32#toString
+       local.set $3
+       global.get $~lib/memory/__stack_pointer
+       local.get $3
+       i32.store offset=12
+       local.get $3
+       call $~lib/string/String.__concat
+       local.set $3
+       global.get $~lib/memory/__stack_pointer
+       local.get $3
+       i32.store
+       local.get $3
+       i32.const 4032
+       local.set $3
+       global.get $~lib/memory/__stack_pointer
+       local.get $3
+       i32.store offset=4
+       local.get $3
+       call $~lib/string/String.__concat
+       local.set $3
+       global.get $~lib/memory/__stack_pointer
+       i32.const 16
+       i32.add
+       global.set $~lib/memory/__stack_pointer
+       local.get $3
+       return
+      end
+     end
+    end
+   end
+  end
+  i32.const 4064
+  local.set $3
+  global.get $~lib/memory/__stack_pointer
+  local.get $3
+  i32.store
+  local.get $3
+  local.get $1
+  i32.const 10
+  call $~lib/number/U32#toString
+  local.set $3
+  global.get $~lib/memory/__stack_pointer
+  local.get $3
+  i32.store offset=4
+  local.get $3
+  call $~lib/string/String.__concat
+  i32.const 752
+  i32.const 87
+  i32.const 3
+  call $~lib/builtins/abort
+  unreachable
+ )
  (func $assembly/index/DangoVM#dispatchPrimitiveMethod (param $0 i32) (param $1 i32) (param $2 i32)
   (local $3 i32)
   (local $4 i32)
   (local $5 i32)
   (local $6 i32)
   (local $7 i32)
-  (local $8 i64)
-  (local $9 i32)
-  (local $10 i32)
-  (local $11 i32)
+  (local $8 i32)
   global.get $~lib/memory/__stack_pointer
-  i32.const 24
+  i32.const 20
   i32.sub
   global.set $~lib/memory/__stack_pointer
   call $~stack_check
   global.get $~lib/memory/__stack_pointer
   i32.const 0
-  i32.const 24
+  i32.const 20
   memory.fill
   i32.const 0
   local.set $3
@@ -5142,422 +5334,772 @@
   local.get $2
   local.set $5
   block $break|0
-   block $case4|0
-    block $case3|0
-     block $case2|0
-      block $case1|0
-       block $case0|0
-        local.get $1
-        local.set $6
-        local.get $6
-        global.get $../flour/primitives/FlourPrimitiveMethodCodes.ADD
-        i32.eq
-        br_if $case0|0
-        local.get $6
-        global.get $../flour/primitives/FlourPrimitiveMethodCodes.MULTIPLY
-        i32.eq
-        br_if $case1|0
-        local.get $6
-        global.get $../flour/primitives/FlourPrimitiveMethodCodes.SUBTRACT
-        i32.eq
-        br_if $case2|0
-        local.get $6
-        global.get $../flour/primitives/FlourPrimitiveMethodCodes.DIVIDE
-        i32.eq
-        br_if $case3|0
-        local.get $6
-        global.get $../flour/primitives/FlourPrimitiveMethodCodes.PRINT
-        i32.eq
-        br_if $case4|0
-        br $break|0
-       end
-       local.get $0
-       call $assembly/index/DangoVM#numericOnly
-       loop $while-continue|1
-        local.get $2
-        local.tee $6
-        i32.const 1
-        i32.sub
-        local.set $2
-        local.get $6
-        i32.const 0
-        i32.gt_u
-        local.set $6
-        local.get $6
-        if
-         local.get $3
+   block $case19|0
+    block $case18|0
+     block $case17|0
+      block $case16|0
+       block $case15|0
+        block $case14|0
+         block $case13|0
+          block $case12|0
+           block $case11|0
+            block $case10|0
+             block $case9|0
+              block $case8|0
+               block $case7|0
+                block $case6|0
+                 block $case5|0
+                  block $case4|0
+                   block $case3|0
+                    block $case2|0
+                     block $case1|0
+                      block $case0|0
+                       local.get $1
+                       local.set $6
+                       local.get $6
+                       global.get $../flour/primitives/FlourPrimitiveMethodCodes.ADD
+                       i32.eq
+                       br_if $case0|0
+                       local.get $6
+                       global.get $../flour/primitives/FlourPrimitiveMethodCodes.MULTIPLY
+                       i32.eq
+                       br_if $case1|0
+                       local.get $6
+                       global.get $../flour/primitives/FlourPrimitiveMethodCodes.SUBTRACT
+                       i32.eq
+                       br_if $case2|0
+                       local.get $6
+                       global.get $../flour/primitives/FlourPrimitiveMethodCodes.DIVIDE
+                       i32.eq
+                       br_if $case3|0
+                       local.get $6
+                       global.get $../flour/primitives/FlourPrimitiveMethodCodes.NUMERICAL_EQ
+                       i32.eq
+                       br_if $case4|0
+                       local.get $6
+                       global.get $../flour/primitives/FlourPrimitiveMethodCodes.EQV
+                       i32.eq
+                       br_if $case5|0
+                       local.get $6
+                       global.get $../flour/primitives/FlourPrimitiveMethodCodes.LESS
+                       i32.eq
+                       br_if $case6|0
+                       local.get $6
+                       global.get $../flour/primitives/FlourPrimitiveMethodCodes.LEQ
+                       i32.eq
+                       br_if $case7|0
+                       local.get $6
+                       global.get $../flour/primitives/FlourPrimitiveMethodCodes.GREATER
+                       i32.eq
+                       br_if $case8|0
+                       local.get $6
+                       global.get $../flour/primitives/FlourPrimitiveMethodCodes.GEQ
+                       i32.eq
+                       br_if $case9|0
+                       local.get $6
+                       global.get $../flour/primitives/FlourPrimitiveMethodCodes.PRINT
+                       i32.eq
+                       br_if $case10|0
+                       local.get $6
+                       global.get $../flour/primitives/FlourPrimitiveMethodCodes.NOT
+                       i32.eq
+                       br_if $case11|0
+                       local.get $6
+                       global.get $../flour/primitives/FlourPrimitiveMethodCodes.NEGATE
+                       i32.eq
+                       br_if $case12|0
+                       local.get $6
+                       global.get $../flour/primitives/FlourPrimitiveMethodCodes.ABS
+                       i32.eq
+                       br_if $case13|0
+                       local.get $6
+                       global.get $../flour/primitives/FlourPrimitiveMethodCodes.IS_BOOLEAN
+                       i32.eq
+                       br_if $case14|0
+                       local.get $6
+                       global.get $../flour/primitives/FlourPrimitiveMethodCodes.IS_FIXNUM
+                       i32.eq
+                       br_if $case15|0
+                       local.get $6
+                       global.get $../flour/primitives/FlourPrimitiveMethodCodes.IS_CHARACTER
+                       i32.eq
+                       br_if $case16|0
+                       local.get $6
+                       global.get $../flour/primitives/FlourPrimitiveMethodCodes.IS_NIL
+                       i32.eq
+                       br_if $case17|0
+                       local.get $6
+                       global.get $../flour/primitives/FlourPrimitiveMethodCodes.IS_PROCEDURE
+                       i32.eq
+                       br_if $case18|0
+                       br $case19|0
+                      end
+                      local.get $0
+                      local.get $2
+                      call $assembly/index/DangoVM#numericOnly
+                      loop $while-continue|1
+                       local.get $2
+                       local.tee $6
+                       i32.const 1
+                       i32.sub
+                       local.set $2
+                       local.get $6
+                       i32.const 0
+                       i32.gt_u
+                       local.set $6
+                       local.get $6
+                       if
+                        local.get $3
+                        local.get $0
+                        call $assembly/index/DangoVM#popData
+                        i32.add
+                        local.set $3
+                        br $while-continue|1
+                       end
+                      end
+                      local.get $0
+                      local.get $3
+                      call $assembly/index/DangoVM#pushInt
+                      br $break|0
+                     end
+                     local.get $0
+                     local.get $2
+                     call $assembly/index/DangoVM#numericOnly
+                     loop $while-continue|2
+                      local.get $2
+                      local.tee $6
+                      i32.const 1
+                      i32.sub
+                      local.set $2
+                      local.get $6
+                      i32.const 0
+                      i32.gt_u
+                      local.set $6
+                      local.get $6
+                      if
+                       local.get $4
+                       local.get $0
+                       call $assembly/index/DangoVM#popData
+                       i32.mul
+                       local.set $4
+                       br $while-continue|2
+                      end
+                     end
+                     local.get $0
+                     local.get $4
+                     call $assembly/index/DangoVM#pushInt
+                     br $break|0
+                    end
+                    local.get $0
+                    local.get $2
+                    call $assembly/index/DangoVM#numericOnly
+                    local.get $0
+                    i32.load
+                    local.set $8
+                    global.get $~lib/memory/__stack_pointer
+                    local.get $8
+                    i32.store
+                    local.get $8
+                    local.get $0
+                    i32.load offset=8
+                    local.get $2
+                    i32.sub
+                    call $~lib/typedarray/Uint64Array#__get
+                    call $assembly/index/getSignedData
+                    local.set $3
+                    loop $while-continue|3
+                     local.get $2
+                     local.tee $6
+                     i32.const 1
+                     i32.sub
+                     local.set $2
+                     local.get $6
+                     i32.const 1
+                     i32.gt_u
+                     local.set $6
+                     local.get $6
+                     if
+                      local.get $3
+                      local.get $0
+                      i32.load
+                      local.set $8
+                      global.get $~lib/memory/__stack_pointer
+                      local.get $8
+                      i32.store
+                      local.get $8
+                      local.get $0
+                      i32.load offset=8
+                      local.get $2
+                      i32.sub
+                      call $~lib/typedarray/Uint64Array#__get
+                      call $assembly/index/getSignedData
+                      i32.sub
+                      local.set $3
+                      br $while-continue|3
+                     end
+                    end
+                    local.get $0
+                    local.get $0
+                    i32.load offset=8
+                    local.get $5
+                    i32.sub
+                    call $assembly/index/DangoVM#set:stackTop
+                    local.get $0
+                    local.get $3
+                    call $assembly/index/DangoVM#pushInt
+                    br $break|0
+                   end
+                   local.get $0
+                   local.get $2
+                   call $assembly/index/DangoVM#numericOnly
+                   local.get $0
+                   i32.load
+                   local.set $8
+                   global.get $~lib/memory/__stack_pointer
+                   local.get $8
+                   i32.store
+                   local.get $8
+                   local.get $0
+                   i32.load offset=8
+                   local.get $2
+                   i32.sub
+                   call $~lib/typedarray/Uint64Array#__get
+                   call $assembly/index/getSignedData
+                   local.set $4
+                   loop $while-continue|4
+                    local.get $2
+                    local.tee $6
+                    i32.const 1
+                    i32.sub
+                    local.set $2
+                    local.get $6
+                    i32.const 1
+                    i32.gt_u
+                    local.set $6
+                    local.get $6
+                    if
+                     local.get $4
+                     local.get $0
+                     i32.load
+                     local.set $8
+                     global.get $~lib/memory/__stack_pointer
+                     local.get $8
+                     i32.store
+                     local.get $8
+                     local.get $0
+                     i32.load offset=8
+                     local.get $2
+                     i32.sub
+                     call $~lib/typedarray/Uint64Array#__get
+                     call $assembly/index/getSignedData
+                     i32.div_s
+                     local.set $4
+                     br $while-continue|4
+                    end
+                   end
+                   local.get $0
+                   local.get $0
+                   i32.load offset=8
+                   local.get $5
+                   i32.sub
+                   call $assembly/index/DangoVM#set:stackTop
+                   local.get $0
+                   local.get $4
+                   call $assembly/index/DangoVM#pushInt
+                   br $break|0
+                  end
+                  local.get $2
+                  i32.const 2
+                  i32.ne
+                  if
+                   i32.const 1632
+                   i32.const 752
+                   i32.const 378
+                   i32.const 11
+                   call $~lib/builtins/abort
+                   unreachable
+                  end
+                  local.get $0
+                  local.get $2
+                  call $assembly/index/DangoVM#numericOnly
+                  local.get $0
+                  local.get $0
+                  call $assembly/index/DangoVM#pop
+                  local.get $0
+                  call $assembly/index/DangoVM#pop
+                  i64.eq
+                  call $assembly/index/DangoVM#pushBool
+                  br $break|0
+                 end
+                 local.get $2
+                 i32.const 2
+                 i32.ne
+                 if
+                  i32.const 1712
+                  i32.const 752
+                  i32.const 385
+                  i32.const 11
+                  call $~lib/builtins/abort
+                  unreachable
+                 end
+                 local.get $0
+                 local.get $0
+                 call $assembly/index/DangoVM#pop
+                 local.get $0
+                 call $assembly/index/DangoVM#pop
+                 i64.eq
+                 call $assembly/index/DangoVM#pushBool
+                 br $break|0
+                end
+                local.get $2
+                i32.const 2
+                i32.ne
+                if
+                 i32.const 1792
+                 i32.const 752
+                 i32.const 390
+                 i32.const 11
+                 call $~lib/builtins/abort
+                 unreachable
+                end
+                local.get $0
+                local.get $2
+                call $assembly/index/DangoVM#numericOnly
+                local.get $0
+                local.get $0
+                call $assembly/index/DangoVM#popData
+                local.get $0
+                call $assembly/index/DangoVM#popData
+                i32.gt_s
+                call $assembly/index/DangoVM#pushBool
+                br $break|0
+               end
+               local.get $2
+               i32.const 2
+               i32.ne
+               if
+                i32.const 1872
+                i32.const 752
+                i32.const 396
+                i32.const 11
+                call $~lib/builtins/abort
+                unreachable
+               end
+               local.get $0
+               local.get $2
+               call $assembly/index/DangoVM#numericOnly
+               local.get $0
+               local.get $0
+               call $assembly/index/DangoVM#popData
+               local.get $0
+               call $assembly/index/DangoVM#popData
+               i32.ge_s
+               call $assembly/index/DangoVM#pushBool
+               br $break|0
+              end
+              local.get $2
+              i32.const 2
+              i32.ne
+              if
+               i32.const 1952
+               i32.const 752
+               i32.const 402
+               i32.const 11
+               call $~lib/builtins/abort
+               unreachable
+              end
+              local.get $0
+              local.get $2
+              call $assembly/index/DangoVM#numericOnly
+              local.get $0
+              local.get $0
+              call $assembly/index/DangoVM#popData
+              local.get $0
+              call $assembly/index/DangoVM#popData
+              i32.lt_s
+              call $assembly/index/DangoVM#pushBool
+              br $break|0
+             end
+             local.get $2
+             i32.const 2
+             i32.ne
+             if
+              i32.const 2032
+              i32.const 752
+              i32.const 408
+              i32.const 11
+              call $~lib/builtins/abort
+              unreachable
+             end
+             local.get $0
+             local.get $2
+             call $assembly/index/DangoVM#numericOnly
+             local.get $0
+             local.get $0
+             call $assembly/index/DangoVM#popData
+             local.get $0
+             call $assembly/index/DangoVM#popData
+             i32.le_s
+             call $assembly/index/DangoVM#pushBool
+             br $break|0
+            end
+            global.get $~lib/memory/__stack_pointer
+            i32.const 592
+            local.tee $6
+            i32.store offset=4
+            loop $while-continue|5
+             local.get $2
+             local.tee $7
+             i32.const 1
+             i32.sub
+             local.set $2
+             local.get $7
+             i32.const 0
+             i32.gt_u
+             local.set $7
+             local.get $7
+             if
+              global.get $~lib/memory/__stack_pointer
+              local.get $6
+              local.get $0
+              i32.load
+              local.set $8
+              global.get $~lib/memory/__stack_pointer
+              local.get $8
+              i32.store offset=8
+              local.get $8
+              local.get $0
+              i32.load offset=8
+              local.get $2
+              i32.sub
+              i32.const 1
+              i32.sub
+              call $~lib/typedarray/Uint64Array#__get
+              call $assembly/index/printUnboxed
+              local.set $8
+              global.get $~lib/memory/__stack_pointer
+              local.get $8
+              i32.store offset=8
+              local.get $8
+              call $~lib/string/String.__concat
+              local.tee $6
+              i32.store offset=4
+              local.get $2
+              i32.const 0
+              i32.gt_u
+              if
+               global.get $~lib/memory/__stack_pointer
+               local.get $6
+               i32.const 4144
+               local.set $8
+               global.get $~lib/memory/__stack_pointer
+               local.get $8
+               i32.store offset=8
+               local.get $8
+               call $~lib/string/String.__concat
+               local.tee $6
+               i32.store offset=4
+              end
+              br $while-continue|5
+             end
+            end
+            local.get $0
+            local.get $0
+            i32.load offset=8
+            local.get $5
+            i32.sub
+            call $assembly/index/DangoVM#set:stackTop
+            local.get $0
+            local.get $0
+            i32.load offset=4
+            local.set $8
+            global.get $~lib/memory/__stack_pointer
+            local.get $8
+            i32.store
+            local.get $8
+            local.get $6
+            i32.const 4176
+            local.set $8
+            global.get $~lib/memory/__stack_pointer
+            local.get $8
+            i32.store offset=12
+            local.get $8
+            call $~lib/string/String.__concat
+            local.set $8
+            global.get $~lib/memory/__stack_pointer
+            local.get $8
+            i32.store offset=8
+            local.get $8
+            call $~lib/string/String.__concat
+            call $assembly/index/DangoVM#set:log
+            local.get $6
+            call $~lib/console/console.log
+            local.get $0
+            call $assembly/index/DangoVM#pushNil
+            br $break|0
+           end
+           local.get $2
+           i32.const 1
+           i32.ne
+           if
+            i32.const 4208
+            i32.const 752
+            i32.const 427
+            i32.const 11
+            call $~lib/builtins/abort
+            unreachable
+           end
+           local.get $0
+           i32.const 0
+           call $assembly/index/DangoVM#peek
+           call $assembly/index/getType
+           global.get $../flour/typecode/FlourUnboxedTypeCode.BOOLEAN
+           i32.ne
+           if
+            i32.const 4288
+            i32.const 752
+            i32.const 429
+            i32.const 11
+            call $~lib/builtins/abort
+            unreachable
+           end
+           local.get $0
+           i32.load
+           local.set $8
+           global.get $~lib/memory/__stack_pointer
+           local.get $8
+           i32.store
+           local.get $8
+           local.get $0
+           i32.load offset=8
+           i32.const 1
+           i32.sub
+           local.get $0
+           i32.load
+           local.set $8
+           global.get $~lib/memory/__stack_pointer
+           local.get $8
+           i32.store offset=8
+           local.get $8
+           local.get $0
+           i32.load offset=8
+           i32.const 1
+           i32.sub
+           call $~lib/typedarray/Uint64Array#__get
+           i64.const 1
+           i64.const 24
+           i64.shl
+           i64.xor
+           call $~lib/typedarray/Uint64Array#__set
+           br $break|0
+          end
+          local.get $2
+          i32.const 1
+          i32.ne
+          if
+           i32.const 4368
+           i32.const 752
+           i32.const 434
+           i32.const 11
+           call $~lib/builtins/abort
+           unreachable
+          end
+          local.get $0
+          i32.const 0
+          call $assembly/index/DangoVM#peek
+          call $assembly/index/getType
+          global.get $../flour/typecode/FlourUnboxedTypeCode.FIXNUM
+          i32.ne
+          if
+           i32.const 4448
+           i32.const 752
+           i32.const 436
+           i32.const 11
+           call $~lib/builtins/abort
+           unreachable
+          end
+          local.get $0
+          i32.const 0
+          local.get $0
+          call $assembly/index/DangoVM#popData
+          i32.sub
+          call $assembly/index/DangoVM#pushInt
+          br $break|0
+         end
+         local.get $2
+         i32.const 1
+         i32.ne
+         if
+          i32.const 4528
+          i32.const 752
+          i32.const 441
+          i32.const 11
+          call $~lib/builtins/abort
+          unreachable
+         end
+         local.get $0
+         i32.const 0
+         call $assembly/index/DangoVM#peek
+         call $assembly/index/getType
+         global.get $../flour/typecode/FlourUnboxedTypeCode.FIXNUM
+         i32.ne
+         if
+          i32.const 4608
+          i32.const 752
+          i32.const 443
+          i32.const 11
+          call $~lib/builtins/abort
+          unreachable
+         end
+         local.get $0
          local.get $0
          call $assembly/index/DangoVM#popData
+         local.tee $6
+         i32.const 31
+         i32.shr_s
+         local.tee $7
+         local.get $6
          i32.add
-         local.set $3
-         br $while-continue|1
+         local.get $7
+         i32.xor
+         call $assembly/index/DangoVM#pushInt
+         br $break|0
         end
-       end
-       local.get $0
-       local.get $3
-       call $assembly/index/DangoVM#pushInt
-       br $break|0
-      end
-      local.get $0
-      call $assembly/index/DangoVM#numericOnly
-      loop $while-continue|2
-       local.get $2
-       local.tee $6
-       i32.const 1
-       i32.sub
-       local.set $2
-       local.get $6
-       i32.const 0
-       i32.gt_u
-       local.set $6
-       local.get $6
-       if
-        local.get $4
+        local.get $2
+        i32.const 1
+        i32.ne
+        if
+         i32.const 4688
+         i32.const 752
+         i32.const 448
+         i32.const 11
+         call $~lib/builtins/abort
+         unreachable
+        end
         local.get $0
-        call $assembly/index/DangoVM#popData
-        i32.mul
-        local.set $4
-        br $while-continue|2
+        local.get $0
+        call $assembly/index/DangoVM#pop
+        call $assembly/index/getType
+        global.get $../flour/typecode/FlourUnboxedTypeCode.BOOLEAN
+        i32.eq
+        call $assembly/index/DangoVM#pushBool
+        br $break|0
        end
-      end
-      local.get $0
-      local.get $4
-      call $assembly/index/DangoVM#pushInt
-      br $break|0
-     end
-     local.get $0
-     call $assembly/index/DangoVM#numericOnly
-     local.get $0
-     i32.load
-     local.set $11
-     global.get $~lib/memory/__stack_pointer
-     local.get $11
-     i32.store
-     local.get $11
-     local.get $0
-     i32.load offset=8
-     local.get $2
-     i32.sub
-     call $~lib/typedarray/Uint64Array#__get
-     call $assembly/index/getSignedData
-     local.set $3
-     loop $while-continue|3
-      local.get $2
-      local.tee $6
-      i32.const 1
-      i32.sub
-      local.set $2
-      local.get $6
-      i32.const 1
-      i32.gt_u
-      local.set $6
-      local.get $6
-      if
-       local.get $3
-       local.get $0
-       i32.load
-       local.set $11
-       global.get $~lib/memory/__stack_pointer
-       local.get $11
-       i32.store
-       local.get $11
-       local.get $0
-       i32.load offset=8
        local.get $2
-       i32.sub
-       call $~lib/typedarray/Uint64Array#__get
-       call $assembly/index/getSignedData
-       i32.sub
-       local.set $3
-       br $while-continue|3
-      end
-     end
-     local.get $0
-     local.get $0
-     i32.load offset=8
-     local.get $5
-     i32.sub
-     call $assembly/index/DangoVM#set:stackTop
-     local.get $0
-     local.get $3
-     call $assembly/index/DangoVM#pushInt
-     br $break|0
-    end
-    local.get $0
-    call $assembly/index/DangoVM#numericOnly
-    local.get $0
-    i32.load
-    local.set $11
-    global.get $~lib/memory/__stack_pointer
-    local.get $11
-    i32.store
-    local.get $11
-    local.get $0
-    i32.load offset=8
-    local.get $2
-    i32.sub
-    call $~lib/typedarray/Uint64Array#__get
-    call $assembly/index/getSignedData
-    local.set $4
-    loop $while-continue|4
-     local.get $2
-     local.tee $6
-     i32.const 1
-     i32.sub
-     local.set $2
-     local.get $6
-     i32.const 1
-     i32.gt_u
-     local.set $6
-     local.get $6
-     if
-      local.get $4
-      local.get $0
-      i32.load
-      local.set $11
-      global.get $~lib/memory/__stack_pointer
-      local.get $11
-      i32.store
-      local.get $11
-      local.get $0
-      i32.load offset=8
-      local.get $2
-      i32.sub
-      call $~lib/typedarray/Uint64Array#__get
-      call $assembly/index/getSignedData
-      i32.div_s
-      local.set $4
-      br $while-continue|4
-     end
-    end
-    local.get $0
-    local.get $0
-    i32.load offset=8
-    local.get $5
-    i32.sub
-    call $assembly/index/DangoVM#set:stackTop
-    local.get $0
-    local.get $4
-    call $assembly/index/DangoVM#pushInt
-    br $break|0
-   end
-   global.get $~lib/memory/__stack_pointer
-   i32.const 592
-   local.tee $6
-   i32.store offset=4
-   loop $while-continue|5
-    local.get $2
-    local.tee $7
-    i32.const 1
-    i32.sub
-    local.set $2
-    local.get $7
-    i32.const 0
-    i32.gt_u
-    local.set $7
-    local.get $7
-    if
-     local.get $0
-     i32.load
-     local.set $11
-     global.get $~lib/memory/__stack_pointer
-     local.get $11
-     i32.store
-     local.get $11
-     local.get $0
-     i32.load offset=8
-     local.get $2
-     i32.sub
-     i32.const 1
-     i32.sub
-     call $~lib/typedarray/Uint64Array#__get
-     local.set $8
-     local.get $8
-     call $assembly/index/getType
-     local.set $9
-     local.get $8
-     call $assembly/index/getSignedData
-     local.set $10
-     local.get $9
-     global.get $../flour/typecode/FlourUnboxedTypeCode.BOOLEAN
-     i32.eq
-     if
-      global.get $~lib/memory/__stack_pointer
-      local.get $6
-      local.get $10
-      i32.const 0
-      i32.gt_s
-      if (result i32)
-       i32.const 1536
-      else
-       i32.const 1568
-      end
-      local.set $11
-      global.get $~lib/memory/__stack_pointer
-      local.get $11
-      i32.store offset=8
-      local.get $11
-      call $~lib/string/String.__concat
-      local.tee $6
-      i32.store offset=4
-     else
-      local.get $9
-      global.get $../flour/typecode/FlourUnboxedTypeCode.CHARACTER
-      i32.eq
-      if
-       global.get $~lib/memory/__stack_pointer
-       local.get $6
-       local.get $10
        i32.const 1
-       global.set $~argumentsLength
-       i32.const 0
-       call $~lib/string/String.fromCharCode@varargs
-       local.set $11
-       global.get $~lib/memory/__stack_pointer
-       local.get $11
-       i32.store offset=8
-       local.get $11
-       call $~lib/string/String.__concat
-       local.tee $6
-       i32.store offset=4
-      else
-       local.get $9
+       i32.ne
+       if
+        i32.const 4768
+        i32.const 752
+        i32.const 453
+        i32.const 11
+        call $~lib/builtins/abort
+        unreachable
+       end
+       local.get $0
+       local.get $0
+       call $assembly/index/DangoVM#pop
+       call $assembly/index/getType
        global.get $../flour/typecode/FlourUnboxedTypeCode.FIXNUM
        i32.eq
-       if
-        global.get $~lib/memory/__stack_pointer
-        local.get $6
-        local.get $10
-        i32.const 10
-        call $~lib/number/I32#toString
-        local.set $11
-        global.get $~lib/memory/__stack_pointer
-        local.get $11
-        i32.store offset=8
-        local.get $11
-        call $~lib/string/String.__concat
-        local.tee $6
-        i32.store offset=4
-       else
-        local.get $9
-        global.get $../flour/typecode/FlourUnboxedTypeCode.NIL
-        i32.eq
-        if
-         global.get $~lib/memory/__stack_pointer
-         local.get $6
-         i32.const 3376
-         local.set $11
-         global.get $~lib/memory/__stack_pointer
-         local.get $11
-         i32.store offset=8
-         local.get $11
-         call $~lib/string/String.__concat
-         local.tee $6
-         i32.store offset=4
-        else
-         local.get $9
-         global.get $../flour/typecode/FlourUnboxedTypeCode.FUNC_PTR
-         i32.eq
-         if
-          global.get $~lib/memory/__stack_pointer
-          local.get $6
-          i32.const 3408
-          local.set $11
-          global.get $~lib/memory/__stack_pointer
-          local.get $11
-          i32.store offset=16
-          local.get $11
-          local.get $8
-          call $assembly/index/getData
-          i32.const 10
-          call $~lib/number/U32#toString
-          local.set $11
-          global.get $~lib/memory/__stack_pointer
-          local.get $11
-          i32.store offset=20
-          local.get $11
-          call $~lib/string/String.__concat
-          local.set $11
-          global.get $~lib/memory/__stack_pointer
-          local.get $11
-          i32.store offset=8
-          local.get $11
-          i32.const 3456
-          local.set $11
-          global.get $~lib/memory/__stack_pointer
-          local.get $11
-          i32.store offset=12
-          local.get $11
-          call $~lib/string/String.__concat
-          local.set $11
-          global.get $~lib/memory/__stack_pointer
-          local.get $11
-          i32.store offset=8
-          local.get $11
-          call $~lib/string/String.__concat
-          local.tee $6
-          i32.store offset=4
-         end
-        end
-       end
+       call $assembly/index/DangoVM#pushBool
+       br $break|0
       end
+      local.get $2
+      i32.const 1
+      i32.ne
+      if
+       i32.const 4848
+       i32.const 752
+       i32.const 458
+       i32.const 11
+       call $~lib/builtins/abort
+       unreachable
+      end
+      local.get $0
+      local.get $0
+      call $assembly/index/DangoVM#pop
+      call $assembly/index/getType
+      global.get $../flour/typecode/FlourUnboxedTypeCode.CHARACTER
+      i32.eq
+      call $assembly/index/DangoVM#pushBool
+      br $break|0
      end
      local.get $2
-     i32.const 0
-     i32.gt_u
+     i32.const 1
+     i32.ne
      if
-      global.get $~lib/memory/__stack_pointer
-      local.get $6
-      i32.const 3488
-      local.set $11
-      global.get $~lib/memory/__stack_pointer
-      local.get $11
-      i32.store offset=8
-      local.get $11
-      call $~lib/string/String.__concat
-      local.tee $6
-      i32.store offset=4
+      i32.const 4848
+      i32.const 752
+      i32.const 463
+      i32.const 11
+      call $~lib/builtins/abort
+      unreachable
      end
-     br $while-continue|5
+     local.get $0
+     local.get $0
+     call $assembly/index/DangoVM#pop
+     call $assembly/index/getType
+     global.get $../flour/typecode/FlourUnboxedTypeCode.NIL
+     i32.eq
+     call $assembly/index/DangoVM#pushBool
+     br $break|0
     end
+    local.get $2
+    i32.const 1
+    i32.ne
+    if
+     i32.const 4848
+     i32.const 752
+     i32.const 468
+     i32.const 11
+     call $~lib/builtins/abort
+     unreachable
+    end
+    local.get $0
+    local.get $0
+    call $assembly/index/DangoVM#pop
+    call $assembly/index/getType
+    global.get $../flour/typecode/FlourUnboxedTypeCode.FUNC_PTR
+    i32.eq
+    call $assembly/index/DangoVM#pushBool
+    br $break|0
    end
-   local.get $0
-   local.get $0
-   i32.load offset=8
-   local.get $5
-   i32.sub
-   call $assembly/index/DangoVM#set:stackTop
-   local.get $0
-   local.get $0
-   i32.load offset=4
-   local.set $11
+   i32.const 4944
+   local.set $8
    global.get $~lib/memory/__stack_pointer
-   local.get $11
-   i32.store
-   local.get $11
-   local.get $6
-   i32.const 3520
-   local.set $11
-   global.get $~lib/memory/__stack_pointer
-   local.get $11
+   local.get $8
    i32.store offset=16
-   local.get $11
-   call $~lib/string/String.__concat
-   local.set $11
+   local.get $8
+   local.get $1
+   i32.const 10
+   call $~lib/number/U32#toString
+   local.set $8
    global.get $~lib/memory/__stack_pointer
-   local.get $11
-   i32.store offset=8
-   local.get $11
+   local.get $8
+   i32.store offset=12
+   local.get $8
    call $~lib/string/String.__concat
-   call $assembly/index/DangoVM#set:log
-   local.get $6
-   call $~lib/console/console.log
-   local.get $0
-   call $assembly/index/DangoVM#pushNil
-   br $break|0
+   local.set $8
+   global.get $~lib/memory/__stack_pointer
+   local.get $8
+   i32.store
+   local.get $8
+   i32.const 4992
+   local.set $8
+   global.get $~lib/memory/__stack_pointer
+   local.get $8
+   i32.store offset=8
+   local.get $8
+   call $~lib/string/String.__concat
+   i32.const 752
+   i32.const 472
+   i32.const 9
+   call $~lib/builtins/abort
+   unreachable
   end
   global.get $~lib/memory/__stack_pointer
-  i32.const 24
+  i32.const 20
   i32.add
   global.set $~lib/memory/__stack_pointer
  )
@@ -5612,87 +6154,149 @@
     call $~lib/typedarray/Uint8Array#__get
     local.set $6
     block $break|1
-     block $case10|1
-      block $case9|1
-       block $case8|1
-        block $case7|1
-         block $case6|1
-          block $case5|1
-           block $case4|1
-            block $case3|1
-             block $case2|1
-              block $case1|1
-               block $case0|1
-                local.get $6
-                local.set $7
-                local.get $7
-                global.get $../flour/opcode/FlourOpcode.JUMP
-                i32.eq
-                br_if $case0|1
-                local.get $7
-                global.get $../flour/opcode/FlourOpcode.JUMP_IF_FALSE
-                i32.eq
-                br_if $case1|1
-                local.get $7
-                global.get $../flour/opcode/FlourOpcode.GET_VARIABLE
-                i32.eq
-                br_if $case2|1
-                local.get $7
-                global.get $../flour/opcode/FlourOpcode.DEFINE_VARIABLE
-                i32.eq
-                br_if $case3|1
-                local.get $7
-                global.get $../flour/opcode/FlourOpcode.SET_VARIABLE
-                i32.eq
-                br_if $case4|1
-                local.get $7
-                global.get $../flour/opcode/FlourOpcode.CONSTANT
-                i32.eq
-                br_if $case5|1
-                local.get $7
-                global.get $../flour/opcode/FlourOpcode.POP
-                i32.eq
-                br_if $case6|1
-                local.get $7
-                global.get $../flour/opcode/FlourOpcode.RETURN
-                i32.eq
-                br_if $case7|1
-                local.get $7
-                global.get $../flour/opcode/FlourOpcode.CLOSURE
-                i32.eq
-                br_if $case8|1
-                local.get $7
-                global.get $../flour/opcode/FlourOpcode.CALL
-                i32.eq
-                br_if $case9|1
-                br $case10|1
+     block $case11|1
+      block $case10|1
+       block $case9|1
+        block $case8|1
+         block $case7|1
+          block $case6|1
+           block $case5|1
+            block $case4|1
+             block $case3|1
+              block $case2|1
+               block $case1|1
+                block $case0|1
+                 local.get $6
+                 local.set $7
+                 local.get $7
+                 global.get $../flour/opcode/FlourOpcode.JUMP
+                 i32.eq
+                 br_if $case0|1
+                 local.get $7
+                 global.get $../flour/opcode/FlourOpcode.JUMP_IF_FALSE
+                 i32.eq
+                 br_if $case1|1
+                 local.get $7
+                 global.get $../flour/opcode/FlourOpcode.NOT
+                 i32.eq
+                 br_if $case2|1
+                 local.get $7
+                 global.get $../flour/opcode/FlourOpcode.GET_VARIABLE
+                 i32.eq
+                 br_if $case3|1
+                 local.get $7
+                 global.get $../flour/opcode/FlourOpcode.DEFINE_VARIABLE
+                 i32.eq
+                 br_if $case4|1
+                 local.get $7
+                 global.get $../flour/opcode/FlourOpcode.SET_VARIABLE
+                 i32.eq
+                 br_if $case5|1
+                 local.get $7
+                 global.get $../flour/opcode/FlourOpcode.CONSTANT
+                 i32.eq
+                 br_if $case6|1
+                 local.get $7
+                 global.get $../flour/opcode/FlourOpcode.POP
+                 i32.eq
+                 br_if $case7|1
+                 local.get $7
+                 global.get $../flour/opcode/FlourOpcode.RETURN
+                 i32.eq
+                 br_if $case8|1
+                 local.get $7
+                 global.get $../flour/opcode/FlourOpcode.CLOSURE
+                 i32.eq
+                 br_if $case9|1
+                 local.get $7
+                 global.get $../flour/opcode/FlourOpcode.CALL
+                 i32.eq
+                 br_if $case10|1
+                 br $case11|1
+                end
+                global.get $assembly/index/debug
+                drop
+                local.get $4
+                local.get $1
+                local.get $4
+                call $assembly/index/Chunk#getInstructionData
+                i32.const 4
+                i32.add
+                i32.add
+                local.set $4
+                br $break|1
+               end
+               global.get $assembly/index/debug
+               drop
+               local.get $0
+               call $assembly/index/DangoVM#pop
+               call $assembly/index/getData
+               i32.const 0
+               i32.eq
+               if
+                global.get $assembly/index/debug
+                drop
+                local.get $4
+                local.get $1
+                local.get $4
+                call $assembly/index/Chunk#getInstructionData
+                i32.add
+                local.set $4
                end
                local.get $4
-               local.get $1
-               local.get $4
-               call $assembly/index/Chunk#getInstructionData
                i32.const 4
-               i32.add
                i32.add
                local.set $4
                br $break|1
               end
+              global.get $assembly/index/debug
+              drop
               local.get $0
-              call $assembly/index/DangoVM#pop
-              i64.const 0
-              i64.eq
+              i32.const 0
+              call $assembly/index/DangoVM#peek
+              call $assembly/index/getType
+              global.get $../flour/typecode/FlourUnboxedTypeCode.BOOLEAN
+              i32.ne
               if
-               local.get $4
-               local.get $1
-               local.get $4
-               call $assembly/index/Chunk#getInstructionData
-               i32.const 4
-               i32.add
-               i32.add
-               local.set $4
+               i32.const 1008
+               i32.const 752
+               i32.const 263
+               i32.const 13
+               call $~lib/builtins/abort
+               unreachable
               end
+              local.get $0
+              i32.load
+              local.set $11
+              global.get $~lib/memory/__stack_pointer
+              local.get $11
+              i32.store offset=4
+              local.get $11
+              local.get $0
+              i32.load offset=8
+              i32.const 1
+              i32.sub
+              local.get $0
+              i32.load
+              local.set $11
+              global.get $~lib/memory/__stack_pointer
+              local.get $11
+              i32.store offset=8
+              local.get $11
+              local.get $0
+              i32.load offset=8
+              i32.const 1
+              i32.sub
+              call $~lib/typedarray/Uint64Array#__get
+              i64.const 1
+              i64.const 24
+              i64.shl
+              i64.xor
+              call $~lib/typedarray/Uint64Array#__set
               br $break|1
              end
+             global.get $assembly/index/debug
+             drop
              local.get $0
              local.get $3
              local.get $1
@@ -5706,6 +6310,8 @@
              local.set $4
              br $break|1
             end
+            global.get $assembly/index/debug
+            drop
             local.get $3
             local.get $1
             local.get $4
@@ -5719,6 +6325,8 @@
             local.set $4
             br $break|1
            end
+           global.get $assembly/index/debug
+           drop
            local.get $3
            local.get $1
            local.get $4
@@ -5732,6 +6340,8 @@
            local.set $4
            br $break|1
           end
+          global.get $assembly/index/debug
+          drop
           local.get $0
           local.get $1
           local.get $1
@@ -5744,11 +6354,15 @@
           local.set $4
           br $break|1
          end
+         global.get $assembly/index/debug
+         drop
          local.get $0
          call $assembly/index/DangoVM#pop
          drop
          br $break|1
         end
+        global.get $assembly/index/debug
+        drop
         local.get $0
         i32.const 0
         call $assembly/index/DangoVM#peek
@@ -5760,6 +6374,8 @@
         local.get $12
         return
        end
+       global.get $assembly/index/debug
+       drop
        local.get $1
        local.get $4
        call $assembly/index/Chunk#getInstructionData
@@ -5811,6 +6427,8 @@
        local.set $4
        br $break|1
       end
+      global.get $assembly/index/debug
+      drop
       local.get $0
       call $assembly/index/DangoVM#pop
       local.set $10
@@ -5819,9 +6437,9 @@
       global.get $../flour/typecode/FlourUnboxedTypeCode.FUNC_PTR
       i32.ne
       if
-       i32.const 1408
+       i32.const 1488
        i32.const 752
-       i32.const 273
+       i32.const 308
        i32.const 13
        call $~lib/builtins/abort
        unreachable
@@ -5860,9 +6478,9 @@
        local.get $9
        i32.ne
        if
-        i32.const 3552
+        i32.const 5040
         i32.const 752
-        i32.const 283
+        i32.const 318
         i32.const 15
         call $~lib/builtins/abort
         unreachable
@@ -5899,7 +6517,7 @@
       local.set $4
       br $break|1
      end
-     i32.const 3664
+     i32.const 5152
      local.set $11
      global.get $~lib/memory/__stack_pointer
      local.get $11
@@ -5919,7 +6537,7 @@
      local.get $11
      i32.store offset=4
      local.get $11
-     i32.const 3712
+     i32.const 5200
      local.set $11
      global.get $~lib/memory/__stack_pointer
      local.get $11
@@ -5927,7 +6545,7 @@
      local.get $11
      call $~lib/string/String.__concat
      i32.const 752
-     i32.const 290
+     i32.const 325
      i32.const 11
      call $~lib/builtins/abort
      unreachable
@@ -5939,9 +6557,9 @@
     br $for-loop|0
    end
   end
-  i32.const 3776
+  i32.const 5264
   i32.const 752
-  i32.const 293
+  i32.const 328
   i32.const 5
   call $~lib/builtins/abort
   unreachable
@@ -5987,9 +6605,8 @@
   global.set $~lib/memory/__stack_pointer
   local.get $2
  )
- (func $assembly/index/run (result i64)
+ (func $assembly/index/run (result i32)
   (local $0 i32)
-  (local $1 i64)
   global.get $~lib/memory/__stack_pointer
   i32.const 4
   i32.sub
@@ -6005,12 +6622,13 @@
   i32.store
   local.get $0
   call $assembly/index/DangoVM#evaluate
-  local.set $1
+  call $assembly/index/printUnboxed
+  local.set $0
   global.get $~lib/memory/__stack_pointer
   i32.const 4
   i32.add
   global.set $~lib/memory/__stack_pointer
-  local.get $1
+  local.get $0
  )
  (func $~lib/arraybuffer/ArrayBufferView#constructor (param $0 i32) (param $1 i32) (param $2 i32) (result i32)
   (local $3 i32)
@@ -6751,71 +7369,6 @@
   global.set $~lib/memory/__stack_pointer
   local.get $3
  )
- (func $~lib/string/String#concat (param $0 i32) (param $1 i32) (result i32)
-  (local $2 i32)
-  (local $3 i32)
-  (local $4 i32)
-  (local $5 i32)
-  (local $6 i32)
-  global.get $~lib/memory/__stack_pointer
-  i32.const 4
-  i32.sub
-  global.set $~lib/memory/__stack_pointer
-  call $~stack_check
-  global.get $~lib/memory/__stack_pointer
-  i32.const 0
-  i32.store
-  local.get $0
-  call $~lib/string/String#get:length
-  i32.const 1
-  i32.shl
-  local.set $2
-  local.get $1
-  call $~lib/string/String#get:length
-  i32.const 1
-  i32.shl
-  local.set $3
-  local.get $2
-  local.get $3
-  i32.add
-  local.set $4
-  local.get $4
-  i32.const 0
-  i32.eq
-  if
-   i32.const 592
-   local.set $6
-   global.get $~lib/memory/__stack_pointer
-   i32.const 4
-   i32.add
-   global.set $~lib/memory/__stack_pointer
-   local.get $6
-   return
-  end
-  global.get $~lib/memory/__stack_pointer
-  local.get $4
-  i32.const 1
-  call $~lib/rt/itcms/__new
-  local.tee $5
-  i32.store
-  local.get $5
-  local.get $0
-  local.get $2
-  memory.copy
-  local.get $5
-  local.get $2
-  i32.add
-  local.get $1
-  local.get $3
-  memory.copy
-  local.get $5
-  local.set $6
-  global.get $~lib/memory/__stack_pointer
-  i32.const 4
-  i32.add
-  global.set $~lib/memory/__stack_pointer
-  local.get $6
- )
  (func $~lib/string/String.fromCharCode (param $0 i32) (param $1 i32) (result i32)
   (local $2 i32)
   (local $3 i32)
@@ -6884,8 +7437,8 @@
    i32.gt_s
   end
   if
-   i32.const 1600
-   i32.const 1728
+   i32.const 2176
+   i32.const 2304
    i32.const 373
    i32.const 5
    call $~lib/builtins/abort
@@ -6894,7 +7447,7 @@
   local.get $0
   i32.eqz
   if
-   i32.const 1792
+   i32.const 2368
    local.set $8
    global.get $~lib/memory/__stack_pointer
    i32.const 4
@@ -7050,8 +7603,8 @@
    i32.gt_s
   end
   if
-   i32.const 1600
-   i32.const 1728
+   i32.const 2176
+   i32.const 2304
    i32.const 350
    i32.const 5
    call $~lib/builtins/abort
@@ -7060,7 +7613,7 @@
   local.get $0
   i32.eqz
   if
-   i32.const 1792
+   i32.const 2368
    local.set $7
    global.get $~lib/memory/__stack_pointer
    i32.const 4
@@ -7164,6 +7717,71 @@
   i32.add
   global.set $~lib/memory/__stack_pointer
   local.get $7
+ )
+ (func $~lib/string/String#concat (param $0 i32) (param $1 i32) (result i32)
+  (local $2 i32)
+  (local $3 i32)
+  (local $4 i32)
+  (local $5 i32)
+  (local $6 i32)
+  global.get $~lib/memory/__stack_pointer
+  i32.const 4
+  i32.sub
+  global.set $~lib/memory/__stack_pointer
+  call $~stack_check
+  global.get $~lib/memory/__stack_pointer
+  i32.const 0
+  i32.store
+  local.get $0
+  call $~lib/string/String#get:length
+  i32.const 1
+  i32.shl
+  local.set $2
+  local.get $1
+  call $~lib/string/String#get:length
+  i32.const 1
+  i32.shl
+  local.set $3
+  local.get $2
+  local.get $3
+  i32.add
+  local.set $4
+  local.get $4
+  i32.const 0
+  i32.eq
+  if
+   i32.const 592
+   local.set $6
+   global.get $~lib/memory/__stack_pointer
+   i32.const 4
+   i32.add
+   global.set $~lib/memory/__stack_pointer
+   local.get $6
+   return
+  end
+  global.get $~lib/memory/__stack_pointer
+  local.get $4
+  i32.const 1
+  call $~lib/rt/itcms/__new
+  local.tee $5
+  i32.store
+  local.get $5
+  local.get $0
+  local.get $2
+  memory.copy
+  local.get $5
+  local.get $2
+  i32.add
+  local.get $1
+  local.get $3
+  memory.copy
+  local.get $5
+  local.set $6
+  global.get $~lib/memory/__stack_pointer
+  i32.const 4
+  i32.add
+  global.set $~lib/memory/__stack_pointer
+  local.get $6
  )
  (func $export:assembly/index/initVM (param $0 i32)
   global.get $~lib/memory/__stack_pointer

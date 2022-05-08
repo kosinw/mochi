@@ -16,9 +16,9 @@ declare namespace __AdaptedExports {
   export function getError(): __Internref12;
   /**
    * assembly/index/run
-   * @returns `u64`
+   * @returns `~lib/string/String`
    */
-  export function run(): bigint;
+  export function run(): string;
 }
 /** ~lib/error/Error */
 declare class __Internref12 extends Number {
