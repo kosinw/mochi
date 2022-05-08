@@ -44,6 +44,15 @@ export default {
   
   ((compose square +) 9 10)`,
 
+  redifinePrimitives: `
+(print (number? 'a))
+(print (number? 2))
+
+(define number? (lambda (x) #t))
+
+(number? 'a)
+  `,
+
   empty: ""
 };
 
