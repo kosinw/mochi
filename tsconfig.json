@@ -5,6 +5,11 @@
   "exclude": [
     "./src/dango/**/*.ts"
   ],
+  "ts-node": {
+    "compilerOptions": {
+      "module": "commonjs"
+    }
+  },
   "compilerOptions": {
     "strict": true,
     "noImplicitReturns": true,
@@ -26,8 +31,13 @@
       ]
     },
     "plugins": [
-      { "transform": "typescript-transform-paths" },
-      { "transform": "typescript-transform-paths", "afterDeclarations": true }
+      {
+        "transform": "typescript-transform-paths"
+      },
+      {
+        "transform": "typescript-transform-paths",
+        "afterDeclarations": true
+      }
     ]
   },
   "typedocOptions": {
