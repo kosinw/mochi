@@ -1,7 +1,7 @@
 import React from 'react';
 import { instantiate } from "@mochi/dango";
 import { ricecakes, flour } from 'mochi';
-import { Grid, Code, Divider, Button, Select } from "@geist-ui/core";
+import { Grid, Code, Button, Select } from "@geist-ui/core";
 import Editor, { useMonaco } from "@monaco-editor/react";
 import { VscGithubInverted, VscDebugAlt } from "react-icons/vsc";
 import useSWR from "swr";
@@ -22,7 +22,7 @@ function useDango() {
 }
 
 function useColorScheme() {
-  const { data, ...rest } = useSWR("/theme.json", fetcher);
+  const { data } = useSWR("/theme.json", fetcher);
   const monaco = useMonaco();
 
   React.useEffect(() => {
@@ -64,7 +64,7 @@ function App() {
     vm.initVM(flour.serialize(compiled));
     try {
       const result = vm.run();
-      setOutput(result);
+      setOutput(`${vm.getConsole()}\nResult: ${result}`);
     } catch (err) {
       setOutput(err.toString());
     }
@@ -96,7 +96,7 @@ function App() {
               }
             </Select>
             <Button onClick={startExecution} iconRight={<VscDebugAlt />} auto scale={2 / 3} px={0.6} />
-            <a target="_blank" href="https://github.com/kosinw/mochi">
+            <a rel="noreferrer" target="_blank" href="https://github.com/kosinw/mochi">
               <Button iconRight={<VscGithubInverted />} auto scale={2 / 3} px={0.6} />
             </a>
           </div>
