@@ -3212,6 +3212,10 @@
   i32.const 0
   call $~lib/rt/itcms/__link
  )
+ (func $assembly/index/DangoVM#get:stackTop (param $0 i32) (result i32)
+  local.get $0
+  i32.load offset=8
+ )
  (func $~lib/typedarray/Uint64Array#__get (param $0 i32) (param $1 i32) (result i64)
   local.get $1
   local.get $0
@@ -3234,14 +3238,6 @@
   i32.shl
   i32.add
   i64.load
- )
- (func $assembly/index/getData (param $0 i64) (result i32)
-  local.get $0
-  i64.const 8
-  i64.shl
-  i64.const 32
-  i64.shr_u
-  i32.wrap_i64
  )
  (func $~lib/map/Map<u32,u64>#has (param $0 i32) (param $1 i32) (result i32)
   local.get $0
@@ -3273,10 +3269,6 @@
   local.get $2
   i64.load offset=8
  )
- (func $assembly/index/DangoVM#get:stackTop (param $0 i32) (result i32)
-  local.get $0
-  i32.load offset=8
- )
  (func $assembly/index/DangoVM#pushFuncPtr (param $0 i32) (param $1 i32)
   local.get $0
   global.get $../flour/typecode/FlourUnboxedTypeCode.FUNC_PTR
@@ -3289,6 +3281,14 @@
  (func $assembly/index/getType (param $0 i64) (result i32)
   local.get $0
   i64.const 56
+  i64.shr_u
+  i32.wrap_i64
+ )
+ (func $assembly/index/getData (param $0 i64) (result i32)
+  local.get $0
+  i64.const 8
+  i64.shl
+  i64.const 32
   i64.shr_u
   i32.wrap_i64
  )
@@ -3312,7 +3312,7 @@
   if
    i32.const 1472
    i32.const 752
-   i32.const 300
+   i32.const 298
    i32.const 7
    call $~lib/builtins/abort
    unreachable
@@ -4782,8 +4782,10 @@
   global.set $~lib/memory/__stack_pointer
   local.get $2
  )
- (func $assembly/index/DangoVM#peekData (param $0 i32) (param $1 i32) (result i32)
+ (func $assembly/index/DangoVM#pop (param $0 i32) (result i64)
+  (local $1 i32)
   (local $2 i32)
+  (local $3 i64)
   global.get $~lib/memory/__stack_pointer
   i32.const 4
   i32.sub
@@ -4800,19 +4802,21 @@
   i32.store
   local.get $2
   local.get $0
+  local.tee $1
+  local.get $0
   i32.load offset=8
-  local.get $1
-  i32.sub
   i32.const 1
   i32.sub
+  call $assembly/index/DangoVM#set:stackTop
+  local.get $1
+  call $assembly/index/DangoVM#get:stackTop
   call $~lib/typedarray/Uint64Array#__get
-  call $assembly/index/getData
-  local.set $2
+  local.set $3
   global.get $~lib/memory/__stack_pointer
   i32.const 4
   i32.add
   global.set $~lib/memory/__stack_pointer
-  local.get $2
+  local.get $3
  )
  (func $assembly/index/Environment#get (param $0 i32) (param $1 i32) (result i64)
   (local $2 i32)
@@ -4927,42 +4931,6 @@
   i32.const 4
   i32.add
   global.set $~lib/memory/__stack_pointer
- )
- (func $assembly/index/DangoVM#pop (param $0 i32) (result i64)
-  (local $1 i32)
-  (local $2 i32)
-  (local $3 i64)
-  global.get $~lib/memory/__stack_pointer
-  i32.const 4
-  i32.sub
-  global.set $~lib/memory/__stack_pointer
-  call $~stack_check
-  global.get $~lib/memory/__stack_pointer
-  i32.const 0
-  i32.store
-  local.get $0
-  i32.load
-  local.set $2
-  global.get $~lib/memory/__stack_pointer
-  local.get $2
-  i32.store
-  local.get $2
-  local.get $0
-  local.tee $1
-  local.get $0
-  i32.load offset=8
-  i32.const 1
-  i32.sub
-  call $assembly/index/DangoVM#set:stackTop
-  local.get $1
-  call $assembly/index/DangoVM#get:stackTop
-  call $~lib/typedarray/Uint64Array#__get
-  local.set $3
-  global.get $~lib/memory/__stack_pointer
-  i32.const 4
-  i32.add
-  global.set $~lib/memory/__stack_pointer
-  local.get $3
  )
  (func $assembly/index/Environment#set (param $0 i32) (param $1 i32) (param $2 i64)
   (local $3 i32)
@@ -5703,32 +5671,23 @@
                local.get $1
                local.get $4
                call $assembly/index/Chunk#getInstructionData
-               global.get $assembly/index/INSTRUCTION_BYTE_LENGTH
-               i32.mul
-               i32.add
-               local.set $4
-               local.get $4
                i32.const 4
+               i32.add
                i32.add
                local.set $4
                br $break|1
               end
               local.get $0
-              i32.const 0
-              call $assembly/index/DangoVM#peekData
-              i32.const 0
-              i32.eq
+              call $assembly/index/DangoVM#pop
+              i64.const 0
+              i64.eq
               if
                local.get $4
                local.get $1
                local.get $4
                call $assembly/index/Chunk#getInstructionData
-               global.get $assembly/index/INSTRUCTION_BYTE_LENGTH
-               i32.mul
-               i32.add
-               local.set $4
-               local.get $4
                i32.const 4
+               i32.add
                i32.add
                local.set $4
               end
@@ -5862,7 +5821,7 @@
       if
        i32.const 1408
        i32.const 752
-       i32.const 275
+       i32.const 273
        i32.const 13
        call $~lib/builtins/abort
        unreachable
@@ -5903,7 +5862,7 @@
        if
         i32.const 3552
         i32.const 752
-        i32.const 285
+        i32.const 283
         i32.const 15
         call $~lib/builtins/abort
         unreachable
@@ -5968,7 +5927,7 @@
      local.get $11
      call $~lib/string/String.__concat
      i32.const 752
-     i32.const 292
+     i32.const 290
      i32.const 11
      call $~lib/builtins/abort
      unreachable
@@ -5982,7 +5941,7 @@
   end
   i32.const 3776
   i32.const 752
-  i32.const 295
+  i32.const 293
   i32.const 5
   call $~lib/builtins/abort
   unreachable
