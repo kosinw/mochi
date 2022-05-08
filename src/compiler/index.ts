@@ -107,6 +107,12 @@ const nextTokenGeneric: NextTokenGeneric = multi(
   method(",", makeTokenCombinator(TokenVariant.READER_MACRO, ReaderMacro.UNQUOTE)), // TODO(kosinw): This might actually be unquote-splicing
   method(OPENING_PAREN, makeTokenCombinator(TokenVariant.LEFT_PAREN)),
   method(CLOSING_PAREN, makeTokenCombinator(TokenVariant.RIGHT_PAREN)),
+  method(';', (x: Tokenizer) => {
+    while (peek(x) !== '\n' && peek(x) !== '') {
+      x.current += 1;
+    }
+    return nextToken(x);
+  }),
   method(".", makeTokenCombinator(TokenVariant.DOT)),
   method("", makeTokenCombinator(TokenVariant.EOF, undefined, 0)),
   method("#", (x: Tokenizer): Token => {
@@ -197,7 +203,6 @@ const nextTokenGeneric: NextTokenGeneric = multi(
  *          otherwise a Result.err
  */
 function nextToken(scanner: Tokenizer): Token {
-  // TODO(kosinw): Implement comments to work
   return nextTokenGeneric(scanner);
 }
 

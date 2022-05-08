@@ -38,18 +38,36 @@ function App() {
   const defaultExample = exampleNames[0];
 
   const [buffer, setBuffer] = React.useState(examples[defaultExample]);
-  const compiled = React.useMemo(() => ricecakes.compile(buffer), [buffer]);
-  const disasm = React.useMemo(() => flour.disassemble(compiled), [compiled]);
+  const compiled = React.useMemo(() => {
+    try {
+      return ricecakes.compile(buffer);
+    } catch (err) {
+      return err.toString();
+    }
+  }, [buffer]);
+  const disasm = React.useMemo(() => {
+    try {
+      return flour.disassemble(compiled);
+    } catch (err) {
+      return compiled;
+    }
+  }, [compiled]);
+
   const [output, setOutput] = React.useState("");
 
   const { data: vm } = useDango();
 
   const startExecution = async () => {
     if (!vm) { return; }
+    if (compiled instanceof String) { return; }
 
     vm.initVM(flour.serialize(compiled));
-    const result = vm.run();
-    setOutput(result);
+    try {
+      const result = vm.run();
+      setOutput(result);
+    } catch (err) {
+      setOutput(err.toString());
+    }
   }
 
   const onSelectChange = (v) => {
