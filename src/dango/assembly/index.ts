@@ -224,13 +224,11 @@ class DangoVM {
 
       switch(opCode) {
         case FlourOpcode.JUMP:
-          i+=c.getInstructionData(i)*INSTRUCTION_BYTE_LENGTH
-          i+=4
+          i+=c.getInstructionData(i)+4
           break;
         case FlourOpcode.JUMP_IF_FALSE:
-          if(this.peekData(0)==0){
-            i+=c.getInstructionData(i)*INSTRUCTION_BYTE_LENGTH
-            i+=4
+          if(this.pop()==0){
+            i+=c.getInstructionData(i)+4
           }
           break;
         case FlourOpcode.GET_VARIABLE:
