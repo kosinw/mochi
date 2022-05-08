@@ -5,9 +5,11 @@
   "dependencies": {
     "@craco/craco": "^6.4.3",
     "@geist-ui/core": "^2.3.8",
+    "@mochi/dango": "link:../src/dango/",
     "@monaco-editor/react": "^4.4.4",
     "assert": "^2.0.0",
     "buffer": "^6.0.3",
+    "mochi": "link:../",
     "react": "^18.1.0",
     "react-dom": "^18.1.0",
     "react-icons": "^4.3.1",

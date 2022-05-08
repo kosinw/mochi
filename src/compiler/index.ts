@@ -532,8 +532,7 @@ enum SpecialForm {
   SET_BANG = "set!",
   QUOTE = "quote",
   AND = "and",
-  OR = "or",
-  PRIMITIVE_NOT = "(primitive not)"
+  OR = "or"
 };
 
 const compileDatum: CompileDatumGeneric = multi(
@@ -585,19 +584,19 @@ const compileExpressionGeneric: CompileExpressionGeneric = multi(
   method(isSpecialForm(SpecialForm.QUOTE), dispatchQuote),
   method(isSpecialForm(SpecialForm.AND), dispatchAnd),
   method(isSpecialForm(SpecialForm.OR), dispatchOr),
-  method(isSpecialForm(SpecialForm.PRIMITIVE_NOT),
-    (expr: SyntaxTree, unit: CompilationUnit, line: number) => {
-      assert(
-        expr.variant === SyntaxTreeVariant.LIST
-        && expr.value[0]
-        && expr.value[0].variant === SyntaxTreeVariant.ATOM
-        && expr.value[0].value.variant === DatumVariant.SYMBOL
-        && expr.value[0].value.value === SpecialForm.PRIMITIVE_NOT
-      );
+  // method(isSpecialForm(SpecialForm.PRIMITIVE_NOT),
+  //   (expr: SyntaxTree, unit: CompilationUnit, line: number) => {
+  //     assert(
+  //       expr.variant === SyntaxTreeVariant.LIST
+  //       && expr.value[0]
+  //       && expr.value[0].variant === SyntaxTreeVariant.ATOM
+  //       && expr.value[0].value.variant === DatumVariant.SYMBOL
+  //       && expr.value[0].value.value === SpecialForm.PRIMITIVE_NOT
+  //     );
 
-      void compileTail(expr.value, unit);
-      flour.emitInstruction(unit.chunk, flour.single(FlourOpcode.NOT, line));
-    }),
+  //     void compileTail(expr.value, unit);
+  //     flour.emitInstruction(unit.chunk, flour.single(FlourOpcode.NOT, line));
+  //   }),
   method(
     SyntaxTreeVariant.LIST,
     (expr: SyntaxTree, unit: CompilationUnit, line: number) => {
@@ -849,7 +848,7 @@ function dispatchDefine(expr: SyntaxTree, unit: CompilationUnit): void {
           variant: SyntaxTreeVariant.LIST,
           value: variable.value.slice(1)
         },
-        subexpr
+        ...expr.value.slice(2)
       ]
     }, unit);
 
@@ -1056,22 +1055,7 @@ function transformConjunction(expr: SyntaxTree[], and: boolean, start: number, l
         line: test.line,
         start: test.start
       },
-      and ? test : {
-        variant: SyntaxTreeVariant.LIST,
-        value: [
-          {
-            variant: SyntaxTreeVariant.ATOM,
-            value: { variant: DatumVariant.SYMBOL, value: "(primitive not)" },
-            length: test.length,
-            line: test.line,
-            start: test.start
-          },
-          test
-        ],
-        length: test.length,
-        line: test.line,
-        start: test.start
-      },
+      test,
       and ? succeedExpr : failExpr,
       and ? failExpr : succeedExpr
     ],
@@ -1095,7 +1079,7 @@ function dispatchLambda(expr: SyntaxTree, unit: CompilationUnit): void {
     && expr.value[0].value.variant === DatumVariant.SYMBOL
     && expr.value[0].value.value === SpecialForm.LAMBDA
   );
-
+  
   const parameterList = expr.value[1];
   const body = expr.value.slice(2);
 
