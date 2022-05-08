@@ -64,11 +64,20 @@
   height: 100%;
   display: flex;
   flex-direction: column;
+  /* overflow-y: auto; */
 }
 
 .text-container {
-  overflow-y: auto;
+  /* overflow-y: auto; */
   display: flex;
   flex-direction: column;
   width: 100%;
+}
+
+.text-container > div {
+  overflow-y: auto;
+}
+
+.output-container > div {
+  overflow-y: auto;
 }

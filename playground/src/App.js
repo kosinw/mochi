@@ -1,7 +1,7 @@
 import React from 'react';
 import { instantiate } from "@mochi/dango";
 import { ricecakes, flour } from 'mochi';
-import { Grid, Code, Button, Select } from "@geist-ui/core";
+import { Grid, Code, Button, Select, useToasts } from "@geist-ui/core";
 import Editor, { useMonaco } from "@monaco-editor/react";
 import { VscGithubInverted, VscDebugAlt } from "react-icons/vsc";
 import useSWR from "swr";
@@ -36,6 +36,7 @@ function useColorScheme() {
 function App() {
   const exampleNames = Object.keys(examples);
   const defaultExample = exampleNames[0];
+  const { setToast } = useToasts();
 
   const [buffer, setBuffer] = React.useState(examples[defaultExample]);
   const compiled = React.useMemo(() => {
@@ -45,6 +46,9 @@ function App() {
       return err.toString();
     }
   }, [buffer]);
+
+  const compilationError = React.useMemo(() => { return typeof compiled === "string"; } , [compiled]);
+
   const disasm = React.useMemo(() => {
     try {
       return flour.disassemble(compiled);
@@ -59,13 +63,17 @@ function App() {
 
   const startExecution = async () => {
     if (!vm) { return; }
-    if (compiled instanceof String) { return; }
+    if (compilationError) { return; }
 
     vm.initVM(flour.serialize(compiled));
+
     try {
+      setToast({ text: "Starting virtual machine..." });
       const result = vm.run();
-      setOutput(`${vm.getConsole()}\nResult: ${result}`);
+      setToast({ text: "Virtual machine successfully finished!", type: "success" });
+      setOutput(`${vm.getConsole()};; Value: ${result}`);
     } catch (err) {
+      setToast({ text: "Virtual machine encountered errors...", type: "error" });
       setOutput(err.toString());
     }
   }
@@ -95,7 +103,7 @@ function App() {
                 )
               }
             </Select>
-            <Button onClick={startExecution} iconRight={<VscDebugAlt />} auto scale={2 / 3} px={0.6} />
+            <Button disabled={compilationError} onClick={startExecution} iconRight={<VscDebugAlt />} auto scale={2 / 3} px={0.6} />
             <a rel="noreferrer" target="_blank" href="https://github.com/kosinw/mochi">
               <Button iconRight={<VscGithubInverted />} auto scale={2 / 3} px={0.6} />
             </a>
@@ -103,8 +111,8 @@ function App() {
         </div>
       </nav>
       <main className="main">
-        <Grid.Container height="66%">
-          <Grid style={{ height: "100%" }} xs={24} sm={12}>
+        <Grid.Container height="100%">
+          <Grid style={{ height: "70%" }} xs={24} sm={12}>
             <Editor
               height="100%"
               defaultLanguage="scheme"
@@ -117,17 +125,32 @@ function App() {
               value={buffer}
               onChange={(v) => setBuffer(v)} />
           </Grid>
-          <Grid height="100%" style={{ overflowY: "auto" }} xs={0} sm={12}>
+          <Grid height="70%" style={{ overflowY: "auto" }} xs={0} sm={12}>
             <div className="text-container">
-              <Code padding={1} style={{ overflowY: "visible" }} font="10px" width="100%" height="100%" my={0} block>
+              <Code padding={1}
+                style={{ overflowY: "auto" }}
+                font="10px"
+                width="100%"
+                height="100%"
+                my={0}
+                block>
                 {disasm}
               </Code>
             </div>
           </Grid>
+          <Grid xs={24} height="30%" className="output-container" width="100%">
+            <Code
+              width="100%"
+              padding={1}
+              pb={5}
+              style={{ overflowY: "auto" }}
+              my={0}
+              block
+              name="Output">
+              {output}
+            </Code>
+          </Grid>
         </Grid.Container>
-        <Code width="80%" style={{ overflowY: "auto" }} height="100%" my={0} block name="Output">
-          {output}
-        </Code>
       </main>
     </div >
   );

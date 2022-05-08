@@ -1,6 +1,7 @@
 {
   "type": "module",
   "name": "@mochi/dango",
+  "version": "0.1.0",
   "exports": {
     ".": {
       "import": "./build/release.js",
