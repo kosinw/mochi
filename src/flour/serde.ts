@@ -103,7 +103,7 @@ class ChunkConstantSection implements BinarySection {
       method(flour.UnboxedValueVariant.BOOLEAN,
         (x: flour.UnboxedValue, ptrOffset: number): Buffer => {
           assert(x.variant === flour.UnboxedValueVariant.BOOLEAN);
-          return struct.pack(">B?xxxxxx", [
+          return struct.pack(">Bxxx?xxx", [
             x.variant,
             x.value
           ]);

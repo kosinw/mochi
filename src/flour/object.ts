@@ -276,10 +276,10 @@ export function closure(numArguments: number, chunk: number, line?: number): Ins
   assert(chunk < 0x1000000);
 
   const buffer = Buffer.alloc(4);
-  buffer.writeUint32LE((chunk << 8) | numArguments, 0);
+  buffer.writeUint32BE((chunk << 8) | (numArguments & 0xff), 0);
 
 
-  return complex(FlourOpcode.CLOSURE, buffer.readUInt32LE(0), line);
+  return complex(FlourOpcode.CLOSURE, buffer.readUInt32BE(0), line);
 }
 
 /**
