@@ -30,7 +30,7 @@ import { FlourOpcode } from "@module/flour";
 //
 ////////////////////////////////////////////////////////
 
-export enum DatumVariant {
+enum DatumVariant {
   FIXNUM = 'fixnum',
   BOOLEAN = 'boolean',
   CHARACTER = 'character',
@@ -41,7 +41,7 @@ export enum DatumVariant {
 /**
  * A Scheme datum as defined by the R5RS.
  */
-export type Datum =
+type Datum =
   | { variant: DatumVariant.FIXNUM, value: number }
   | { variant: DatumVariant.BOOLEAN, value: boolean }
   | { variant: DatumVariant.SYMBOL, value: string }
@@ -50,14 +50,14 @@ export type Datum =
 /**
  * A Scheme reader macro as defined by the R5RS.
  */
-export enum ReaderMacro {
+enum ReaderMacro {
   QUOTE = 'quote',
   QUASIQUOTE = 'quasiquote',
   UNQUOTE = 'unquote',
   UNQUOTE_SPLICING = 'unquote-splicing'
 };
 
-export enum TokenVariant {
+enum TokenVariant {
   DATUM = 'datum',
   LEFT_PAREN = 'left-paren',
   RIGHT_PAREN = 'right-paren',
@@ -70,7 +70,7 @@ export enum TokenVariant {
  * A lexical unit in our Scheme lexical grammar.
  * See R5RS for more info.
  */
-export type Token = {
+type Token = {
   length: number,
   start: number,
   line: number
@@ -196,7 +196,7 @@ const nextTokenGeneric: NextTokenGeneric = multi(
  * @returns (a result for) the next token in the stream if source is valid,
  *          otherwise a Result.err
  */
-export function nextToken(scanner: Tokenizer): Token {
+function nextToken(scanner: Tokenizer): Token {
   // TODO(kosinw): Implement comments to work
   return nextTokenGeneric(scanner);
 }
@@ -286,7 +286,7 @@ function peekDatum(t: Tokenizer, formed: string = ''): string {
  * 
  * @param source source program
  */
-export function makeTokenizer(source: string): Tokenizer {
+function makeTokenizer(source: string): Tokenizer {
   return { current: 0, line: 1, source };
 }
 
@@ -296,7 +296,7 @@ export function makeTokenizer(source: string): Tokenizer {
 //
 ////////////////////////////////////////////////////////
 
-export enum SyntaxTreeVariant {
+enum SyntaxTreeVariant {
   ATOM = 'atom',
   LIST = 'list',
   // VECTOR = 'vector
@@ -306,7 +306,7 @@ export enum SyntaxTreeVariant {
 /**
  * Represents an abstract syntax tree for the Scheme programming language.
  */
-export type SyntaxTree = { start: number; length: number; line: number; } &
+type SyntaxTree = { start: number; length: number; line: number; } &
   (
     | { variant: SyntaxTreeVariant.ATOM, value: Datum }
     | { variant: SyntaxTreeVariant.LIST, value: SyntaxTree[] }
@@ -365,7 +365,7 @@ function advance(parser: Parser): void {
  * @param scanner a tokenizer
  * @returns a new parser which fetches tokens from scanner
  */
-export function makeParser(scanner: Tokenizer): Parser {
+function makeParser(scanner: Tokenizer): Parser {
   const firstToken = nextToken(scanner);
 
   return {
@@ -460,7 +460,7 @@ const expressionGeneric: ExpressionGeneric = multi(
  * @param parser a parser
  * @returns (a result for) a new syntax tree representing parsed Scheme expression
  */
-export function expression(parser: Parser): SyntaxTree {
+function expression(parser: Parser): SyntaxTree {
   const result = expressionGeneric(parser);
   advance(parser);
   return result;

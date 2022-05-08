@@ -52,32 +52,3 @@ export enum FlourPrimitiveMethodCodes {
   // IO
   PRINT,
 }
-
-type PrimitiveInstructions = Record<FlourPrimitiveMethodCodes, string>;
-
-export const primitiveBindings: PrimitiveInstructions = {
-  [FlourPrimitiveMethodCodes.SUBTRACT]: "-",
-  [FlourPrimitiveMethodCodes.MULTIPLY]: "*",
-  [FlourPrimitiveMethodCodes.ADD]: "+",
-  [FlourPrimitiveMethodCodes.DIVIDE]: "/",
-  [FlourPrimitiveMethodCodes.NOT]: "not",
-  [FlourPrimitiveMethodCodes.NEGATE]: "negate",
-  [FlourPrimitiveMethodCodes.ABS]: "abs",
-  [FlourPrimitiveMethodCodes.NUMERICAL_EQ]: "=",
-  [FlourPrimitiveMethodCodes.EQV]: "eqv?",
-  [FlourPrimitiveMethodCodes.LESS]: "<",
-  [FlourPrimitiveMethodCodes.LEQ]: "<=",
-  [FlourPrimitiveMethodCodes.GREATER]: ">",
-  [FlourPrimitiveMethodCodes.GEQ]: ">=",
-  [FlourPrimitiveMethodCodes.CONS]: "cons",
-  [FlourPrimitiveMethodCodes.CAR]: "car",
-  [FlourPrimitiveMethodCodes.CDR]: "cdr",
-   [FlourPrimitiveMethodCodes.IS_BOOLEAN]: "boolean?",
-   [FlourPrimitiveMethodCodes.IS_CHARACTER]: "character?",
-   [FlourPrimitiveMethodCodes.IS_FIXNUM]: "number?",
-   [FlourPrimitiveMethodCodes.IS_NIL]: "null?",
-   [FlourPrimitiveMethodCodes.IS_PROCEDURE]: "procedure?",
-   [FlourPrimitiveMethodCodes.IS_SYMBOL]: "symbol?",
-   [FlourPrimitiveMethodCodes.IS_PAIR]: "pair?",
-   [FlourPrimitiveMethodCodes.PRINT]: "print",
-};

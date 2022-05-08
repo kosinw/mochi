@@ -1,7 +1,6 @@
 {
   "include": [
     "./src/**/*.ts",
-    "./test/**/*.ts",
   ],
   "exclude": [
     "./src/dango/**/*.ts"
@@ -12,17 +11,25 @@
     "forceConsistentCasingInFileNames": true,
     "noImplicitOverride": true,
     "noPropertyAccessFromIndexSignature": true,
-    "target": "ES2021",
-    "module": "CommonJS",
+    "target": "ES2015",
+    "module": "es2020",
+    "moduleResolution": "node",
     "esModuleInterop": true,
+    "declaration": true,
+    "declarationMap": true,
     "sourceMap": true,
     "outDir": "./dist",
-    "baseUrl": ".",
+    "baseUrl": "src",
     "paths": {
-      "@module/*": ["./src/*"]
-    }
+      "@module/*": [
+        "./*"
+      ]
+    },
+    "plugins": [
+      { "transform": "typescript-transform-paths" },
+      { "transform": "typescript-transform-paths", "afterDeclarations": true }
+    ]
   },
-  
   "typedocOptions": {
     "out": "doc",
     "disableSources": true,

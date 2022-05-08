@@ -19,7 +19,8 @@
 import { FlourOpcode } from "./opcode";
 import { BoxedValueVariant, UnboxedValueVariant } from "@module/flour";
 import assert from "assert";
-import { FlourPrimitiveMethodCodes, primitiveBindings } from "./primitives";
+import { FlourPrimitiveMethodCodes } from "./primitives";
+import { primitiveBindings } from "./bindings";
 
 const WORD_SIZE = 4;
 

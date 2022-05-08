@@ -35,8 +35,6 @@ interface BinarySection {
 //
 ///////////////////////////////////////////////////////////////////
 
-export const BOXED_VALUE_SIZE = 0x08;
-
 class ChunkHeader implements BinarySection {
   public readonly name: string;
   public readonly dataStart: number;
