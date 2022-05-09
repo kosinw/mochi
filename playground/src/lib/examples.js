@@ -49,5 +49,40 @@ export default {
 (number? 'a)
   `,
 
+  churchPairs: `(define cons
+  (lambda (x y)
+    (lambda (msg)
+      (if (= msg 0) x y))))
+
+(define car
+  (lambda (pair)
+    (pair 0)))
+
+(define cdr
+  (lambda (pair)
+    (pair 1)))
+
+(define (compose f g)
+  (lambda (x)
+    (f (g x))))
+
+(define cadr
+  (compose car cdr))
+
+(define the-list (cons 2 (cons 3 (cons 4 (cons 5 ())))))
+
+(define (map f l)
+  (if (null? l)
+    ()
+    (cons
+      (f (car l))
+      (map f (cdr l)))))
+
+(define (square x) (* x x))
+
+(define perfect-squares (map square the-list))
+
+(map print perfect-squares)`,
+
   empty: ""
 };
