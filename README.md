@@ -2,7 +2,7 @@
 
 > A compiler and stack machine for the Scheme programming language targeting the WebAssembly platform.
 
-See the accompanying [paper](https://mochi-scheme.github.io/paper.pdf) for an introduction on the design and methodloogy used in this project. 
+See the accompanying [paper](https://mochi-scheme.github.io/paper.pdf) for an introduction on the design and methodology used in this project. 
 
 ## References
 * Nystrom. Crafting Interpreters - https://craftinginterpreters.com/
